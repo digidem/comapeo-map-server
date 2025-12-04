@@ -1,0 +1,16 @@
+{
+	"extends": "@tsconfig/node18/tsconfig.json",
+	"compilerOptions": {
+		"allowJs": true,
+		"checkJs": true,
+		"noEmit": true,
+
+		"strict": true,
+		"noImplicitOverride": true,
+		"forceConsistentCasingInFileNames": true,
+
+		"skipLibCheck": true
+	},
+	"include": ["**/*"],
+	"exclude": ["node_modules", "dist"]
+}
