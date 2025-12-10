@@ -1,13 +1,13 @@
 import { StatusError } from 'itty-router'
+import {
+	fetch as secretStreamFetch,
+	Agent as SecretStreamAgent,
+} from 'secret-stream-http'
+import z32 from 'z32'
 
 import { TypedEventTarget } from '../lib/event-target.js'
 import type { DownloadCreateRequest } from '../routes/downloads.js'
-import {
-	MapShareState,
-	type DownloadStateUpdate,
-	type MapInfo,
-	type MapShareStateUpdate,
-} from '../types.js'
+import { type DownloadStateUpdate } from '../types.js'
 import { StateUpdateEvent } from './state-update-event.js'
 import { generateId } from './utils.js'
 
@@ -31,19 +31,34 @@ export class DownloadRequest extends TypedEventTarget<
 			bytesDownloaded: 0,
 			downloadId: generateId(),
 		}
-		this.#start(downloadUrls, stream).catch((error) => {
+		const remotePublicKey = z32.decode(this.#state.senderDeviceId)
+		if (!remotePublicKey || remotePublicKey.length !== 32) {
+			throw new StatusError(400, 'Invalid senderDeviceId')
+		}
+		this.#start({ downloadUrls, stream, remotePublicKey }).catch((error) => {
 			this.#updateState({ status: 'error', error })
 		})
 	}
 
-	async #start(downloadUrls: string[], stream: WritableStream<Uint8Array>) {
+	async #start({
+		downloadUrls,
+		stream,
+		remotePublicKey,
+	}: {
+		downloadUrls: string[]
+		stream: WritableStream<Uint8Array>
+		remotePublicKey: Uint8Array
+	}) {
 		let response: Response | undefined
 		// The sharer could have multiple IPs for different network interfaces, and
 		// not all of them may be on the same network as us, so try each URL until
 		// one works
 		for (const url of downloadUrls) {
 			try {
-				response = await fetch(url, { signal: this.#abortController.signal })
+				response = await secretStreamFetch(url, {
+					signal: this.#abortController.signal,
+					dispatcher: new SecretStreamAgent({ remotePublicKey }),
+				})
 				break // Exit loop on successful fetch
 			} catch (error) {
 				if (error instanceof DOMException && error.name === 'AbortError') {

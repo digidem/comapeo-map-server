@@ -54,6 +54,7 @@
 	"dependencies": {
 		"@whatwg-node/server": "^0.10.17",
 		"itty-router": "^5.0.22",
+		"secret-stream-http": "file:secret-stream-http-7b43484.tgz",
 		"styled-map-package": "^3.0.0",
 		"typebox": "^1.0.61",
 		"typed-event-target": "^3.4.0",

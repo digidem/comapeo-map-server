@@ -64,7 +64,7 @@ function json(obj) {
  * @param {string} [options.base='/'] Base path for the server routes
  * @returns {{ fetch: (request: RequestLike, reader: ReaderLike) => Promise<Response> }} server instance
  */
-export function createServer({ base = '/' } = {}) {
+export function createSmpServer({ base = '/' } = {}) {
 	base = base.endsWith('/') ? base : base + '/'
 	const router = IttyRouter({
 		base,

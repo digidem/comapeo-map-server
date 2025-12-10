@@ -125,9 +125,7 @@ export function createMapSharesRouter(
  * Get the base URLs for downloads for all non-internal IPv4 addresses of the machine
  */
 function getRemoteBaseUrls(requestUrl: string, remotePort: number): string[] {
-	if (!requestUrl.endsWith('/')) {
-		requestUrl += '/'
-	}
+	requestUrl = requestUrl.endsWith('/') ? requestUrl : requestUrl + '/'
 	const interfaces = os.networkInterfaces()
 	const baseUrls: string[] = []
 	for (const iface of Object.values(interfaces)) {
