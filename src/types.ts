@@ -1,4 +1,5 @@
 import type { IRequestStrict } from 'itty-router'
+import type { Reader } from 'styled-map-package'
 import { Type as T, type Static } from 'typebox'
 
 export const MapShareDeclineReason = T.Union([
@@ -105,12 +106,15 @@ export type MapInfo = {
 	bounds: [number, number, number, number]
 	minzoom: number
 	maxzoom: number
+	created: number
 }
 
 export type Context = {
 	getMapInfo: (mapId: string) => Promise<MapInfo>
-	getMapReadableStream: (mapId: string) => ReadableStream<Uint8Array>
-	getMapWritableStream: (mapId: string) => WritableStream<Uint8Array>
+	getReader: (mapId: string) => Reader
+	createMapReadableStream: (mapId: string) => ReadableStream<Uint8Array>
+	createMapWritableStream: (mapId: string) => WritableStream<Uint8Array>
+	getDefaultOnlineStyleUrl: () => URL
 	getRemotePort: () => Promise<number>
 }
 

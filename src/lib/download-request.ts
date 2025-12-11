@@ -19,6 +19,18 @@ export class DownloadRequest extends TypedEventTarget<
 > {
 	#state: DownloadRequestState
 	#abortController = new AbortController()
+	#transform = new TransformStream({
+		transform: (chunk, controller) => {
+			if (this.#state.status !== 'downloading') {
+				throw new Error('Download has been cancelled or encountered an error')
+			}
+			this.#updateState({
+				status: 'downloading',
+				bytesDownloaded: this.#state.bytesDownloaded + chunk.byteLength,
+			})
+			controller.enqueue(chunk)
+		},
+	})
 
 	constructor(
 		stream: WritableStream<Uint8Array>,
@@ -73,7 +85,8 @@ export class DownloadRequest extends TypedEventTarget<
 		if (!response.ok || !response.body) {
 			throw new StatusError(response.status, 'Failed to download map data')
 		}
-		await response.body.pipeTo(stream)
+		await response.body.pipeThrough(this.#transform).pipeTo(stream)
+		this.#updateState({ status: 'completed' })
 	}
 
 	get state() {
