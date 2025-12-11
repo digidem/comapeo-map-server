@@ -55,7 +55,7 @@
 		"@whatwg-node/server": "^0.10.17",
 		"itty-router": "^5.0.22",
 		"p-defer": "^4.0.1",
-		"secret-stream-http": "file:secret-stream-http-4a96829.tgz",
+		"secret-stream-http": "^1.0.0",
 		"styled-map-package": "^3.0.0",
 		"typebox": "^1.0.61",
 		"typed-event-target": "^3.4.0",
