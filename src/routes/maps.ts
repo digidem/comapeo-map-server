@@ -1,89 +1,78 @@
-import { type Stats } from 'node:fs'
-import fsPromises from 'node:fs/promises'
-import path from 'node:path'
-
-import { IttyRouter, StatusError, type RequestHandler } from 'itty-router'
-import { Reader } from 'styled-map-package'
+import {
+	IRequestStrict,
+	IttyRouter,
+	StatusError,
+	type RequestHandler,
+} from 'itty-router'
 
 import {
 	CUSTOM_MAP_ID,
 	DEFAULT_MAP_ID,
 	FALLBACK_MAP_ID,
 } from '../lib/constants.js'
-import { getErrorCode, noop } from '../lib/utils.js'
+import { SelfEvictingPromiseMap } from '../lib/self-evicting-map.js'
+import { noop } from '../lib/utils.js'
+import type { Context } from '../types.js'
 import { createSmpServer } from './smp-server.js'
 
-type MapsRouterOptions = {
-	base?: string
-	customMapPath: string
-	fallbackMapPath: string
-	defaultOnlineStyleUrl: string | URL
+type MapRequest = IRequestStrict & {
+	params: {
+		mapId: string
+	}
 }
 
-export function createMapsRouter({
-	base = '/',
-	customMapPath,
-	fallbackMapPath,
-	defaultOnlineStyleUrl,
-}: MapsRouterOptions) {
+export function createMapsRouter({ base = '/' }, ctx: Context) {
 	base = base.endsWith('/') ? base : base + '/'
-	const fallbackMapReader = new Reader(fallbackMapPath)
-	let customMapReader = new Reader(customMapPath)
+	const activeUploads = new SelfEvictingPromiseMap<string, Promise<void>>()
 
-	const customMapRouter = createSmpServer({
-		base: `${base}${CUSTOM_MAP_ID}/`,
-	})
-	const fallbackMapRouter = createSmpServer({
-		base: `${base}${FALLBACK_MAP_ID}/`,
+	const smpServer = createSmpServer({
+		base: `${base}:mapId/`,
 	})
 
-	const router = IttyRouter({ base })
+	const router = IttyRouter<IRequestStrict>({ base })
 
-	router.get(`/${CUSTOM_MAP_ID}/info`, async (request) => {
-		let stats: Stats
-		try {
-			stats = await fsPromises.stat(customMapPath)
-		} catch (err) {
-			if (getErrorCode(err) === 'ENOENT') {
-				throw new StatusError(404, 'Custom map not found')
-			}
-			throw err
-		}
-		const url = new URL(`style.json`, request.url)
-		const response = await router.fetch(new Request(url))
-		if (!response.ok) {
-			// The custom map style not existing should have been caught earlier,
-			// so if we get here, something else is wrong with the custom map.
-			throw new StatusError(500, 'Custom map style is not valid')
-		}
-		const style = (await response.json()) as unknown
-		const name =
-			typeof style === 'object' &&
-			style !== null &&
-			'name' in style &&
-			typeof style.name === 'string'
-				? style.name
-				: path.parse(customMapPath).name
+	router.get<MapRequest>(`/:mapId/info`, async (request) => {
+		const info = await ctx.getMapInfo(request.params.mapId)
 		return {
-			created: stats.ctime,
-			size: stats.size,
-			name,
+			created: info.created,
+			size: info.estimatedSizeBytes,
+			name: info.mapName,
 		}
 	})
 
-	router.all(`/${CUSTOM_MAP_ID}/*`, async (request) => {
-		return customMapRouter.fetch(request, customMapReader)
+	const uploadHandler: RequestHandler<MapRequest> = async (request) => {
+		const writable = ctx.createMapWritableStream(request.params.mapId)
+		if (!request.body) {
+			throw new StatusError(400, 'Invalid Request')
+		}
+		await request.body.pipeTo(writable)
+	}
+
+	router.put<MapRequest>('/:mapId', async (request) => {
+		// Only allow uploading to the custom map ID for now
+		if (request.params.mapId !== CUSTOM_MAP_ID) {
+			throw new StatusError(404, 'Map not found')
+		}
+		if (!request.body) {
+			throw new StatusError(400, 'Invalid Request')
+		}
+		await activeUploads.get(request.params.mapId)?.catch(noop)
+		const uploadPromise = uploadHandler(request)
+		activeUploads.set(request.params.mapId, uploadPromise)
+		await uploadPromise
 	})
 
-	router.all(`/${FALLBACK_MAP_ID}/*`, async (request) => {
-		return fallbackMapRouter.fetch(request, fallbackMapReader)
+	router.all(`/:mapId/*`, async (request) => {
+		if (request.params.mapId === DEFAULT_MAP_ID) {
+			return defaultMapHandler(request)
+		}
+		return smpServer.fetch(request, ctx.getReader(request.params.mapId))
 	})
 
-	router.get(`/${DEFAULT_MAP_ID}/style.json`, async (request) => {
-		// The default map is:
-		// 1. If a custom map is provided, use that.
-		// 2. Otherwise, if online, use the default online style.
-		// 3. Otherwise, use the offline fallback map that is bundled.
+	// Special handler for the default map ID that tries to serve a custom map
+	// if available, otherwise falls back to the online style or bundled fallback
+	const defaultMapHandler: RequestHandler = async (request) => {
+		const defaultOnlineStyleUrl = ctx.getDefaultOnlineStyleUrl()
 		const styleUrls = [
 			new URL(`../${CUSTOM_MAP_ID}/style.json`, request.url),
 			defaultOnlineStyleUrl,
@@ -108,7 +97,7 @@ export function createMapsRouter({
 		}
 
 		throw new StatusError(404, 'No available map style found')
-	})
+	}
 
 	return router
 }
