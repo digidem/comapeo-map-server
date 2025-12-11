@@ -4,6 +4,7 @@ import { Type as T, type Static } from 'typebox'
 import { CUSTOM_MAP_ID } from '../lib/constants.js'
 import { DownloadRequest } from '../lib/download-request.js'
 import { createEventStreamResponse } from '../lib/event-stream-response.js'
+import { SelfEvictingTimeoutMap } from '../lib/self-evicting-map.js'
 import { localhostOnly } from '../middlewares/localhost-only.js'
 import { parseRequest } from '../middlewares/parse-request.js'
 import {
@@ -29,13 +30,11 @@ export function createDownloadsRouter(
 	{ base }: { base: string },
 	ctx: Context,
 ): RouterExternal {
-	const downloads = new Map<string, DownloadRequest>()
+	const downloads = new SelfEvictingTimeoutMap<string, DownloadRequest>()
 	const router = IttyRouter({ base })
 
-	router.all('*', localhostOnly)
-
 	router.post('/', parseRequest(DownloadCreateRequest), async (request) => {
-		const writable = ctx.getMapWritableStream(CUSTOM_MAP_ID)
+		const writable = ctx.createMapWritableStream(CUSTOM_MAP_ID)
 		const download = new DownloadRequest(writable, request.parsed)
 		downloads.set(download.state.downloadId, download)
 		return Response.json(download.state, {
@@ -44,6 +43,10 @@ export function createDownloadsRouter(
 				Location: new URL(download.state.downloadId, request.url).href,
 			},
 		})
+	})
+
+	router.get('/', () => {
+		return Array.from(downloads.values()).map((d) => d.state)
 	})
 
 	router.get('/:downloadId', async (request) => {
