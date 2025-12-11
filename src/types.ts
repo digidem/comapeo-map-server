@@ -80,9 +80,11 @@ const MapShareBase = T.Object({
 	mapName: T.String({ description: 'The name of the map being shared' }),
 	mapId: T.String({ description: 'The ID of the map being shared' }),
 	downloadUrls: DownloadUrls,
-	bounds: T.Tuple([T.Number(), T.Number(), T.Number(), T.Number()], {
+	bounds: T.Readonly(
+		T.Tuple([T.Number(), T.Number(), T.Number(), T.Number()], {
 		description: 'The bounding box of the map data being shared',
 	}),
+	),
 	minzoom: T.Number({
 		description: 'The minimum zoom level of the map data being shared',
 	}),

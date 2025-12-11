@@ -94,6 +94,15 @@ export class Context {
 		}
 		return Readable.toWeb(fs.createReadStream(mapFileUrl))
 	}
+	/**
+	 * Creates a writable stream to write map data to the specified map ID.
+	 * The data is first written to a temporary file, and once the stream is closed,
+	 * the temporary file replaces the existing map file. This ensures that the map
+	 * file is only updated when the write operation is fully complete.
+	 *
+	 * @param mapId - The ID of the map to write data to.
+	 * @returns A writable stream to write map data.
+	 */
 	createMapWritableStream(mapId: string) {
 		const mapFileUrl = this.#mapFileUrls.get(mapId)
 		if (!mapFileUrl) {
