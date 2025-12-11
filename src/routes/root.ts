@@ -1,6 +1,7 @@
 import { error, json, Router, type IRequestStrict } from 'itty-router'
 
 import type { Context } from '../context.js'
+import { localhostOnly } from '../middlewares/localhost-only.js'
 import type { FetchContext, RouterExternal } from '../types.js'
 import { DownloadsRouter } from './downloads.js'
 import { MapSharesRouter } from './map-shares.js'
@@ -22,12 +23,14 @@ export function RootRouter({ base = '/' }, ctx: Context): RouterExternal {
 	})
 
 	const mapsRouter = MapsRouter({ base: MAPS_BASE }, ctx)
-	const mapSharesRouter = MapSharesRouter({ base: MAP_SHARES_BASE }, ctx)
 	const downloadsRouter = DownloadsRouter({ base: DOWNLOADS_BASE }, ctx)
+	const mapSharesRouter = MapSharesRouter({ base: MAP_SHARES_BASE }, ctx)
 
-	router.all(`${MAPS_BASE}*`, mapsRouter.fetch)
+	router.all(`${MAPS_BASE}*`, localhostOnly, mapsRouter.fetch)
+	router.all(`${DOWNLOADS_BASE}*`, localhostOnly, downloadsRouter.fetch)
+	// Some map share routes are remote-accessible - localhostOnly is applied in
+	// the map shares router where needed
 	router.all(`${MAP_SHARES_BASE}*`, mapSharesRouter.fetch)
-	router.all(`${DOWNLOADS_BASE}*`, downloadsRouter.fetch)
 
 	return router
 }
