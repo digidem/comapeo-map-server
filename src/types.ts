@@ -1,4 +1,4 @@
-import type { IRequestStrict } from 'itty-router'
+import type { IRequestStrict, RequestLike } from 'itty-router'
 import type { Reader } from 'styled-map-package'
 import { Type as T, type Static } from 'typebox'
 
@@ -131,7 +131,7 @@ export type DistributeProperty<T, K extends keyof T> = T[K] extends infer V
  * called with the necessary fetch context
  */
 export type RouterExternal = {
-	fetch: (request: IRequestStrict, context: FetchContext) => Promise<any>
+	fetch: (request: RequestLike, context: FetchContext) => Promise<any>
 }
 
 export type BBox = Readonly<[number, number, number, number]>

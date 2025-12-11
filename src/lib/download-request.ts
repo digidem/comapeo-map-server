@@ -67,10 +67,10 @@ export class DownloadRequest extends TypedEventTarget<
 		// one works
 		for (const url of downloadUrls) {
 			try {
-				response = await secretStreamFetch(url, {
+				response = (await secretStreamFetch(url, {
 					signal: this.#abortController.signal,
 					dispatcher: new SecretStreamAgent({ remotePublicKey }),
-				})
+				})) as unknown as Response // Subtle difference bewteen Undici fetch Response and whatwg Response
 				break // Exit loop on successful fetch
 			} catch (error) {
 				if (error instanceof DOMException && error.name === 'AbortError') {

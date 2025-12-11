@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { StatusError } from 'itty-router'
 import { Reader } from 'styled-map-package'
 
+import type { ServerOptions } from './index.js'
 import { CUSTOM_MAP_ID, FALLBACK_MAP_ID } from './lib/constants.js'
 import {
 	getErrorCode,
@@ -16,10 +17,7 @@ import {
 	noop,
 } from './lib/utils.js'
 
-type ContextOptions = {
-	defaultOnlineStyleUrl: string
-	customMapPath: string
-	fallbackMapPath: string
+type ContextOptions = Omit<ServerOptions, 'keyPair'> & {
 	getRemotePort: () => Promise<number>
 }
 
