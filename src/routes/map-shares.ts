@@ -5,6 +5,7 @@ import { Type as T } from 'typebox'
 
 import { createEventStreamResponse } from '../lib/event-stream-response.js'
 import { MapShare } from '../lib/map-share.js'
+import { SelfEvictingTimeoutMap } from '../lib/self-evicting-map.js'
 import { timingSafeEqual } from '../lib/utils.js'
 import { localhostOnly } from '../middlewares/localhost-only.js'
 import { parseRequest } from '../middlewares/parse-request.js'
@@ -29,7 +30,7 @@ export function createMapSharesRouter(
 	{ base }: { base: string },
 	ctx: Context,
 ): RouterExternal {
-	const mapShares = new Map<string, MapShare>()
+	const mapShares = new SelfEvictingTimeoutMap<string, MapShare>()
 
 	const router = IttyRouter<IRequestStrict, [FetchContext]>({ base })
 
@@ -56,6 +57,10 @@ export function createMapSharesRouter(
 			})
 		},
 	)
+
+	router.get('/', localhostOnly, () => {
+		return Array.from(mapShares.values()).map((ms) => ms.state)
+	})
 
 	router.get(
 		'/:shareId/events',
@@ -96,7 +101,7 @@ export function createMapSharesRouter(
 
 	router.get('/:shareId/download', async (request): Promise<Response> => {
 		const mapShare = getMapShare(request.params.shareId)
-		const stream = ctx.getMapReadableStream(mapShare.state.mapId)
+		const stream = ctx.createMapReadableStream(mapShare.state.mapId)
 		return mapShare.downloadResponse(stream)
 	})
 
