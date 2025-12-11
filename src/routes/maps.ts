@@ -21,7 +21,7 @@ type MapRequest = IRequestStrict & {
 	}
 }
 
-export function createMapsRouter({ base = '/' }, ctx: Context) {
+export function MapsRouter({ base = '/' }, ctx: Context) {
 	base = base.endsWith('/') ? base : base + '/'
 	const activeUploads = new SelfEvictingPromiseMap<string, Promise<void>>()
 

@@ -26,7 +26,7 @@ const DownloadCreateRequest = T.Object({
 
 export type DownloadCreateRequest = Static<typeof DownloadCreateRequest>
 
-export function createDownloadsRouter(
+export function DownloadsRouter(
 	{ base }: { base: string },
 	ctx: Context,
 ): RouterExternal {

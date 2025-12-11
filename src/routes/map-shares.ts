@@ -26,7 +26,7 @@ const MapShareDeclineRequest = T.Object({
 	reason: MapShareDeclineReason,
 })
 
-export function createMapSharesRouter(
+export function MapSharesRouter(
 	{ base }: { base: string },
 	ctx: Context,
 ): RouterExternal {
