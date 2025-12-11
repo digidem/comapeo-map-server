@@ -1,14 +1,13 @@
 import { IttyRouter, StatusError } from 'itty-router'
 import { Type as T, type Static } from 'typebox'
 
+import type { Context } from '../context.js'
 import { CUSTOM_MAP_ID } from '../lib/constants.js'
 import { DownloadRequest } from '../lib/download-request.js'
 import { createEventStreamResponse } from '../lib/event-stream-response.js'
 import { SelfEvictingTimeoutMap } from '../lib/self-evicting-map.js'
-import { localhostOnly } from '../middlewares/localhost-only.js'
 import { parseRequest } from '../middlewares/parse-request.js'
 import {
-	Context,
 	DownloadUrls,
 	EstimatedSizeBytes,
 	ShareId,

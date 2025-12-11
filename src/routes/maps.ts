@@ -5,6 +5,7 @@ import {
 	type RequestHandler,
 } from 'itty-router'
 
+import type { Context } from '../context.js'
 import {
 	CUSTOM_MAP_ID,
 	DEFAULT_MAP_ID,
@@ -12,7 +13,6 @@ import {
 } from '../lib/constants.js'
 import { SelfEvictingPromiseMap } from '../lib/self-evicting-map.js'
 import { noop } from '../lib/utils.js'
-import type { Context } from '../types.js'
 import { createSmpServer } from './smp-server.js'
 
 type MapRequest = IRequestStrict & {
@@ -66,7 +66,7 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 		if (request.params.mapId === DEFAULT_MAP_ID) {
 			return defaultMapHandler(request)
 		}
-		return smpServer.fetch(request, ctx.getReader(request.params.mapId))
+		return smpServer.fetch(request, await ctx.getReader(request.params.mapId))
 	})
 
 	// Special handler for the default map ID that tries to serve a custom map

@@ -1,6 +1,7 @@
 import { error, json, Router, type IRequestStrict } from 'itty-router'
 
-import type { Context, FetchContext, RouterExternal } from '../types.js'
+import type { Context } from '../context.js'
+import type { FetchContext, RouterExternal } from '../types.js'
 import { DownloadsRouter } from './downloads.js'
 import { MapSharesRouter } from './map-shares.js'
 import { MapsRouter } from './maps.js'

@@ -3,6 +3,7 @@ import os from 'node:os'
 import { IRequestStrict, IttyRouter, StatusError } from 'itty-router'
 import { Type as T } from 'typebox'
 
+import type { Context } from '../context.js'
 import { createEventStreamResponse } from '../lib/event-stream-response.js'
 import { MapShare } from '../lib/map-share.js'
 import { SelfEvictingTimeoutMap } from '../lib/self-evicting-map.js'
@@ -10,7 +11,6 @@ import { timingSafeEqual } from '../lib/utils.js'
 import { localhostOnly } from '../middlewares/localhost-only.js'
 import { parseRequest } from '../middlewares/parse-request.js'
 import {
-	Context,
 	MapShareDeclineReason,
 	MapShareState,
 	type FetchContext,

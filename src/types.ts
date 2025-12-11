@@ -103,19 +103,10 @@ export type MapInfo = {
 	mapId: string
 	mapName: string
 	estimatedSizeBytes: number
-	bounds: [number, number, number, number]
+	bounds: BBox
 	minzoom: number
 	maxzoom: number
 	created: number
-}
-
-export type Context = {
-	getMapInfo: (mapId: string) => Promise<MapInfo>
-	getReader: (mapId: string) => Reader
-	createMapReadableStream: (mapId: string) => ReadableStream<Uint8Array>
-	createMapWritableStream: (mapId: string) => WritableStream<Uint8Array>
-	getDefaultOnlineStyleUrl: () => URL
-	getRemotePort: () => Promise<number>
 }
 
 export type FetchContext = {
@@ -140,3 +131,5 @@ export type DistributeProperty<T, K extends keyof T> = T[K] extends infer V
 export type RouterExternal = {
 	fetch: (request: IRequestStrict, context: FetchContext) => Promise<any>
 }
+
+export type BBox = Readonly<[number, number, number, number]>
