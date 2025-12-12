@@ -4,6 +4,7 @@ import {
 	StatusError,
 	type RequestHandler,
 } from 'itty-router'
+import { createServer as createSmpServer } from 'styled-map-package/server'
 
 import type { Context } from '../context.js'
 import {
@@ -13,7 +14,6 @@ import {
 } from '../lib/constants.js'
 import { SelfEvictingPromiseMap } from '../lib/self-evicting-map.js'
 import { noop } from '../lib/utils.js'
-import { createSmpServer } from './smp-server.js'
 
 type MapRequest = IRequestStrict & {
 	params: {
