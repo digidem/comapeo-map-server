@@ -53,10 +53,10 @@ export function createServer(options: ServerOptions) {
 	const router = RootRouter({ base: '/' }, context)
 	const serverAdapter = createServerAdapter<FetchContext>(router.fetch)
 	const localHttpServer = http.createServer((req, res) => {
-		serverAdapter.handleNodeRequestAndResponse(req, res, { isLocalhost: true })
+		serverAdapter(req, res, { isLocalhost: true })
 	})
 	const remoteHttpServer = http.createServer((req, res) => {
-		serverAdapter.handleNodeRequestAndResponse(req, res, {
+		serverAdapter(req, res, {
 			isLocalhost: false,
 			// @ts-expect-error - the types for this are too hard and making them work would not add any type safety.
 			remoteDeviceId: z32.encode(req.socket.remotePublicKey),
