@@ -145,16 +145,6 @@ function validateOptions(options: unknown): asserts options is ServerOptions {
 			options.keyPair.secretKey instanceof Uint8Array,
 			new TypeError('keyPair.secretKey must be a Uint8Array'),
 		)
-		assert.equal(
-			options.keyPair.publicKey.length,
-			32,
-			new TypeError('keyPair.publicKey must be 32 bytes'),
-		)
-		assert.equal(
-			options.keyPair.secretKey.length,
-			32,
-			new TypeError('keyPair.secretKey must be 32 bytes'),
-		)
 		parsedOptions.keyPair = {
 			publicKey: options.keyPair.publicKey,
 			secretKey: options.keyPair.secretKey,
