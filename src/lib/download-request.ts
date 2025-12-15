@@ -35,6 +35,7 @@ export class DownloadRequest extends TypedEventTarget<
 	constructor(
 		stream: WritableStream<Uint8Array>,
 		{ downloadUrls, ...rest }: DownloadCreateRequest,
+		keyPair: { publicKey: Uint8Array; secretKey: Uint8Array },
 	) {
 		super()
 		this.#state = {
@@ -47,7 +48,8 @@ export class DownloadRequest extends TypedEventTarget<
 		if (!remotePublicKey || remotePublicKey.length !== 32) {
 			throw new StatusError(400, 'Invalid senderDeviceId')
 		}
-		this.#start({ downloadUrls, stream, remotePublicKey }).catch((error) => {
+		this.#start({ downloadUrls, stream, remotePublicKey, keyPair }).catch(
+			(error) => {
 			this.#updateState({ status: 'error', error })
 		})
 	}
@@ -56,10 +58,12 @@ export class DownloadRequest extends TypedEventTarget<
 		downloadUrls,
 		stream,
 		remotePublicKey,
+		keyPair,
 	}: {
 		downloadUrls: string[]
 		stream: WritableStream<Uint8Array>
 		remotePublicKey: Uint8Array
+		keyPair: { publicKey: Uint8Array; secretKey: Uint8Array }
 	}) {
 		let response: Response | undefined
 		// The sharer could have multiple IPs for different network interfaces, and
@@ -69,7 +73,7 @@ export class DownloadRequest extends TypedEventTarget<
 			try {
 				response = (await secretStreamFetch(url, {
 					signal: this.#abortController.signal,
-					dispatcher: new SecretStreamAgent({ remotePublicKey }),
+					dispatcher: new SecretStreamAgent({ remotePublicKey, keyPair }),
 				})) as unknown as Response // Subtle difference bewteen Undici fetch Response and whatwg Response
 				break // Exit loop on successful fetch
 			} catch (error) {

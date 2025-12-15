@@ -34,7 +34,7 @@ export function DownloadsRouter(
 
 	router.post('/', parseRequest(DownloadCreateRequest), async (request) => {
 		const writable = ctx.createMapWritableStream(CUSTOM_MAP_ID)
-		const download = new DownloadRequest(writable, request.parsed)
+		const download = new DownloadRequest(writable, request.parsed, ctx.getKeyPair())
 		downloads.set(download.state.downloadId, download)
 		return Response.json(download.state, {
 			status: 201,
