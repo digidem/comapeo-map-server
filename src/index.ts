@@ -59,7 +59,7 @@ export function createServer({ keyPair, ...contextOptions }: ServerOptions) {
 
 	return {
 		async listen(opts: ListenOptions = {}) {
-			localHttpServer.listen(opts.localPort, '127.0.0.0')
+			localHttpServer.listen(opts.localPort, '127.0.0.1')
 			secretStreamServer.listen(opts.remotePort, '0.0.0.0')
 			await Promise.all([
 				once(localHttpServer, 'listening'),
