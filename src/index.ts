@@ -1,3 +1,4 @@
+import assert from 'node:assert'
 import { once } from 'node:events'
 import http from 'node:http'
 import { type AddressInfo } from 'node:net'
@@ -14,7 +15,7 @@ export type ServerOptions = {
 	defaultOnlineStyleUrl: string
 	customMapPath: string
 	fallbackMapPath: string
-	keyPair: {
+	keyPair?: {
 		publicKey: Uint8Array
 		secretKey: Uint8Array
 	}
@@ -30,7 +31,9 @@ type ListenResult = {
 	remotePort: number
 }
 
-export function createServer({ keyPair, ...contextOptions }: ServerOptions) {
+export function createServer(options: ServerOptions) {
+	const { keyPair, ...contextOptions } = parseOptions(options)
+
 	const deferredListen = pDefer<ListenResult>()
 	const context = new Context({
 		...contextOptions,
@@ -71,4 +74,77 @@ export function createServer({ keyPair, ...contextOptions }: ServerOptions) {
 			return { localPort, remotePort }
 		},
 	}
+}
+
+function parseOptions(options: unknown): ServerOptions {
+	assert(
+		typeof options === 'object' && options !== null,
+		new TypeError('options must be an object'),
+	)
+	assert(
+		'defaultOnlineStyleUrl' in options,
+		new TypeError('missing defaultOnlineStyleUrl'),
+	)
+	assert('customMapPath' in options, new TypeError('missing customMapPath'))
+	assert('fallbackMapPath' in options, new TypeError('missing fallbackMapPath'))
+
+	assert(
+		typeof options.defaultOnlineStyleUrl === 'string',
+		new TypeError('defaultOnlineStyleUrl must be a string'),
+	)
+	assert(
+		URL.canParse(options.defaultOnlineStyleUrl),
+		new TypeError('defaultOnlineStyleUrl must be a valid URL'),
+	)
+	assert(
+		typeof options.customMapPath === 'string',
+		new TypeError('customMapPath must be a string'),
+	)
+	assert(
+		typeof options.fallbackMapPath === 'string',
+		new TypeError('fallbackMapPath must be a string'),
+	)
+	const parsedOptions: ServerOptions = {
+		defaultOnlineStyleUrl: options.defaultOnlineStyleUrl,
+		customMapPath: options.customMapPath,
+		fallbackMapPath: options.fallbackMapPath,
+	}
+
+	if ('keyPair' in options && options.keyPair !== undefined) {
+		assert(
+			typeof options.keyPair === 'object' && options.keyPair !== null,
+			new TypeError('keyPair must be an object'),
+		)
+		assert(
+			'publicKey' in options.keyPair,
+			new TypeError('keyPair must have a publicKey'),
+		)
+		assert(
+			options.keyPair.publicKey instanceof Uint8Array,
+			new TypeError('keyPair.publicKey must be a Uint8Array'),
+		)
+		assert(
+			'secretKey' in options.keyPair,
+			new TypeError('keyPair must have a secretKey'),
+		)
+		assert(
+			options.keyPair.secretKey instanceof Uint8Array,
+			new TypeError('keyPair.secretKey must be a Uint8Array'),
+		)
+		assert.equal(
+			options.keyPair.publicKey.length,
+			32,
+			new TypeError('keyPair.publicKey must be 32 bytes'),
+		)
+		assert.equal(
+			options.keyPair.secretKey.length,
+			32,
+			new TypeError('keyPair.secretKey must be 32 bytes'),
+		)
+		parsedOptions.keyPair = {
+			publicKey: options.keyPair.publicKey,
+			secretKey: options.keyPair.secretKey,
+		}
+	}
+	return parsedOptions
 }
