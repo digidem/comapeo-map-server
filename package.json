@@ -9,7 +9,7 @@
 		}
 	},
 	"scripts": {
-		"test": "node --test",
+		"test": "vitest run",
 		"format": "prettier --write .",
 		"lint": "eslint",
 		"prepare": "husky",
@@ -23,13 +23,19 @@
 		"@eslint/js": "^9.39.1",
 		"@trivago/prettier-plugin-sort-imports": "^6.0.0",
 		"@tsconfig/node18": "^18.2.6",
-		"@types/node": "^18.19.130",
+		"@types/node": "^20.19.26",
+		"@vitest/coverage-v8": "^4.0.15",
+		"bogon": "^1.1.0",
 		"eslint": "^9.39.1",
+		"eventsource-client": "^1.2.0",
 		"globals": "^16.5.0",
 		"husky": "^9.1.7",
 		"lint-staged": "^16.2.7",
+		"msw": "^2.12.4",
 		"prettier": "^3.7.4",
-		"typescript": "^5.9.3"
+		"type-fest": "^5.3.1",
+		"typescript": "^5.9.3",
+		"vitest": "^4.0.15"
 	},
 	"prettier": {
 		"semi": false,
@@ -48,5 +54,15 @@
 	"lint-staged": {
 		"*.js": "eslint --cache --fix",
 		"*.{js,css,md}": "prettier --write"
+	},
+	"dependencies": {
+		"@whatwg-node/server": "^0.10.17",
+		"itty-router": "^5.0.22",
+		"p-defer": "^4.0.1",
+		"secret-stream-http": "^1.0.0",
+		"styled-map-package": "^4.0.1",
+		"typebox": "^1.0.61",
+		"typed-event-target": "^3.4.0",
+		"z32": "^1.1.0"
 	}
 }
