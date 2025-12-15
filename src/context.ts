@@ -133,6 +133,8 @@ export class Context {
 					return new Reader(mapFileUrl)
 				})()
 				this.#mapReaders.set(mapId, readerPromise)
+				// Wait for the file copy to complete before closing the stream
+				await readerPromise
 			},
 			async abort(err) {
 				try {
