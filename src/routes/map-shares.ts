@@ -84,7 +84,10 @@ export function MapSharesRouter(
 	// These routes can be accessed by a remote peer, but the peer deviceId must
 	// match the receiverDeviceId on the map share
 
-	router.all('/:shareId*', async (request, { remoteDeviceId, isLocalhost }) => {
+	const validateRemoteDeviceId = async (
+		request: IRequestStrict,
+		{ remoteDeviceId, isLocalhost }: FetchContext,
+	) => {
 		if (isLocalhost) return
 		if (!remoteDeviceId) {
 			throw new StatusError(403, 'Forbidden')
@@ -93,7 +96,10 @@ export function MapSharesRouter(
 		if (!timingSafeEqual(remoteDeviceId, mapShare.state.receiverDeviceId)) {
 			throw new StatusError(403, 'Forbidden')
 		}
-	})
+	}
+
+	router.all('/:shareId', validateRemoteDeviceId)
+	router.all('/:shareId/*', validateRemoteDeviceId)
 
 	router.get('/:shareId', async (request): Promise<MapShareState> => {
 		return getMapShare(request.params.shareId).state
