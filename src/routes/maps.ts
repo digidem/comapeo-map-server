@@ -89,10 +89,14 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 			}
 			response?.body?.cancel() // Close the connection
 			if (response && response.ok) {
-				const redirectResponse = Response.redirect(url, 302)
-				redirectResponse.headers.set('access-control-allow-origin', '*')
-				redirectResponse.headers.set('cache-control', 'no-cache')
-				return redirectResponse
+				return new Response(null, {
+					status: 302,
+					headers: {
+						location: url.toString(),
+						'access-control-allow-origin': '*',
+						'cache-control': 'no-cache',
+					},
+				})
 			}
 		}
 
