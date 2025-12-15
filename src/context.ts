@@ -131,7 +131,21 @@ export class Context {
 				await writer.write(chunk)
 			},
 			close: async () => {
+				// Finish writing to the temp file
 				await writer.close()
+
+				// Validate the uploaded map file BEFORE replacing the existing one
+				const tempReader = new Reader(tempPath)
+				try {
+					await tempReader.opened()
+				} catch (err) {
+					// Clean up temp file on validation failure
+					await fsPromises.unlink(tempPath).catch(noop)
+					throw new StatusError(400, 'Uploaded map file is invalid')
+				} finally {
+					await tempReader.close().catch(noop)
+				}
+
 				// Graceful replacement of SMP Reader when map file is updated
 				const readerPromise = (async () => {
 					const existingReaderPromise = this.#mapReaders.get(mapId)
@@ -140,7 +154,7 @@ export class Context {
 						await existingReader.close().catch(noop)
 					}
 					await fsPromises.cp(tempPath, mapFileUrl, { force: true })
-					return new Reader(mapFileUrl)
+					return new Reader(fileURLToPath(mapFileUrl))
 				})()
 				this.#mapReaders.set(mapId, readerPromise)
 				// Wait for the file copy to complete before closing the stream
