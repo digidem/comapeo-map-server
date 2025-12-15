@@ -60,6 +60,8 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 		const uploadPromise = uploadHandler(request)
 		activeUploads.set(request.params.mapId, uploadPromise)
 		await uploadPromise
+		return new Response(null, { status: 200 })
+	})
 	})
 
 	router.all(`/:mapId/*`, async (request) => {
