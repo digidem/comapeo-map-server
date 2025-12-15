@@ -12,6 +12,7 @@ import {
 import z32 from 'z32'
 
 import { Context } from './context.js'
+import { fetchAPI } from './lib/fetch-api.js'
 import { RootRouter } from './routes/root.js'
 import type { FetchContext } from './types.js'
 
@@ -51,7 +52,10 @@ export function createServer(options: ServerOptions) {
 		},
 	})
 	const router = RootRouter({ base: '/' }, context)
-	const serverAdapter = createServerAdapter<FetchContext>(router.fetch)
+	// Use native fetch API to avoid ponyfill bugs with stream error propagation
+	const serverAdapter = createServerAdapter<FetchContext>(router.fetch, {
+		fetchAPI,
+	})
 	const localHttpServer = http.createServer((req, res) => {
 		serverAdapter(req, res, { isLocalhost: true })
 	})
