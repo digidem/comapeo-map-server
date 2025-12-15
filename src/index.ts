@@ -5,7 +5,10 @@ import { type AddressInfo } from 'node:net'
 
 import { createServerAdapter } from '@whatwg-node/server'
 import pDefer from 'p-defer'
-import { createServer as createSecretStreamServer } from 'secret-stream-http'
+import {
+	Agent,
+	createServer as createSecretStreamServer,
+} from 'secret-stream-http'
 import z32 from 'z32'
 
 import { Context } from './context.js'
@@ -33,11 +36,15 @@ type ListenResult = {
 }
 
 export function createServer(options: ServerOptions) {
-	const { keyPair, ...contextOptions } = parseOptions(options)
+	validateOptions(options)
+	if (!options.keyPair) {
+		options.keyPair = Agent.keyPair()
+	}
 
 	const deferredListen = pDefer<ListenResult>()
 	const context = new Context({
-		...contextOptions,
+		...options,
+		keyPair: options.keyPair,
 		getRemotePort: async () => {
 			const listenOptions = await deferredListen.promise
 			return listenOptions.remotePort
@@ -56,7 +63,7 @@ export function createServer(options: ServerOptions) {
 		})
 	})
 	const secretStreamServer = createSecretStreamServer(remoteHttpServer, {
-		keyPair,
+		keyPair: options.keyPair,
 	})
 
 	return {
@@ -72,10 +79,18 @@ export function createServer(options: ServerOptions) {
 			deferredListen.resolve({ localPort, remotePort })
 			return { localPort, remotePort }
 		},
+		async close() {
+			localHttpServer.close()
+			secretStreamServer.close()
+			await Promise.all([
+				once(localHttpServer, 'close'),
+				once(secretStreamServer, 'close'),
+			])
+		},
 	}
 }
 
-function parseOptions(options: unknown): ServerOptions {
+function validateOptions(options: unknown): asserts options is ServerOptions {
 	assert(
 		typeof options === 'object' && options !== null,
 		new TypeError('options must be an object'),
@@ -96,11 +111,11 @@ function parseOptions(options: unknown): ServerOptions {
 		new TypeError('defaultOnlineStyleUrl must be a valid URL'),
 	)
 	assert(
-		typeof options.customMapPath === 'string',
+		typeof options.customMapPath === 'string' && options.customMapPath,
 		new TypeError('customMapPath must be a string'),
 	)
 	assert(
-		typeof options.fallbackMapPath === 'string',
+		typeof options.fallbackMapPath === 'string' && options.fallbackMapPath,
 		new TypeError('fallbackMapPath must be a string'),
 	)
 	const parsedOptions: ServerOptions = {
@@ -145,5 +160,4 @@ function parseOptions(options: unknown): ServerOptions {
 			secretKey: options.keyPair.secretKey,
 		}
 	}
-	return parsedOptions
 }

@@ -2,10 +2,11 @@ import fs, { type Stats } from 'node:fs'
 import fsPromises from 'node:fs/promises'
 import path from 'node:path'
 import { Readable, Writable } from 'node:stream'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { StatusError } from 'itty-router'
 import { Reader } from 'styled-map-package'
+import type { SetRequired } from 'type-fest'
 
 import type { ServerOptions } from './index.js'
 import { CUSTOM_MAP_ID, FALLBACK_MAP_ID } from './lib/constants.js'
@@ -17,7 +18,7 @@ import {
 	noop,
 } from './lib/utils.js'
 
-type ContextOptions = Omit<ServerOptions, 'keyPair'> & {
+type ContextOptions = SetRequired<ServerOptions, 'keyPair'> & {
 	getRemotePort: () => Promise<number>
 }
 
@@ -27,23 +28,29 @@ export class Context {
 	#defaultOnlineStyleUrl: URL
 	#mapFileUrls: Map<string, URL>
 	#mapReaders: Map<string, Promise<Reader>> = new Map()
+	#keyPair: { publicKey: Uint8Array; secretKey: Uint8Array }
 	getRemotePort: () => Promise<number>
 
 	constructor({
 		defaultOnlineStyleUrl,
 		customMapPath,
 		fallbackMapPath,
+		keyPair,
 		getRemotePort,
 	}: ContextOptions) {
 		this.#defaultOnlineStyleUrl = new URL(defaultOnlineStyleUrl)
 		this.#mapFileUrls = new Map([
-			[CUSTOM_MAP_ID, new URL(customMapPath)],
-			[FALLBACK_MAP_ID, new URL(fallbackMapPath)],
+			[CUSTOM_MAP_ID, pathToFileURL(customMapPath)],
+			[FALLBACK_MAP_ID, pathToFileURL(fallbackMapPath)],
 		])
+		this.#keyPair = keyPair
 		this.getRemotePort = getRemotePort
 	}
 	getDefaultOnlineStyleUrl() {
 		return this.#defaultOnlineStyleUrl
+	}
+	getKeyPair() {
+		return this.#keyPair
 	}
 	async getMapInfo(mapId: string) {
 		const mapFileUrl = this.#mapFileUrls.get(mapId)
