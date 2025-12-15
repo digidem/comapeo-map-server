@@ -61,6 +61,8 @@ export class MapShare extends TypedEventTarget<
 			throw new StatusError(400, 'Download already completed')
 		} else if (this.#state.status === 'declined') {
 			throw new StatusError(400, 'Map share has been declined')
+		} else if (this.#state.status === 'canceled') {
+			throw new StatusError(400, 'Map share has been canceled')
 		}
 		this.#download?.removeAllEventListeners()
 		this.#download = new DownloadResponse(readable)
