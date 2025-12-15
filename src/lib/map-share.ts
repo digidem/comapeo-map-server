@@ -34,7 +34,7 @@ export class MapShare extends TypedEventTarget<
 		const shareId = generateId()
 		this.#state = {
 			...mapInfo,
-			shareId: generateId(),
+			shareId,
 			downloadUrls: baseUrls.map(
 				(baseUrl) => new URL(`${shareId}`, baseUrl).href,
 			),
