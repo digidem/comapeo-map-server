@@ -9,7 +9,7 @@ import { TypedEventTarget } from '../lib/event-target.js'
 import type { DownloadCreateRequest } from '../routes/downloads.js'
 import { type DownloadStateUpdate } from '../types.js'
 import { StateUpdateEvent } from './state-update-event.js'
-import { generateId } from './utils.js'
+import { generateId, noop } from './utils.js'
 
 type DownloadRequestState = DownloadStateUpdate &
 	Omit<DownloadCreateRequest, 'downloadUrls'> & { downloadId: string }
@@ -50,8 +50,11 @@ export class DownloadRequest extends TypedEventTarget<
 		}
 		this.#start({ downloadUrls, stream, remotePublicKey, keyPair }).catch(
 			(error) => {
-			this.#updateState({ status: 'error', error })
-		})
+				// In case the error happens before we pipe to the stream, we need to abort the stream
+				stream.abort().catch(noop)
+				this.#updateState({ status: 'error', error })
+			},
+		)
 	}
 
 	async #start({
