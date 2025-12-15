@@ -16,9 +16,9 @@ import { RootRouter } from './routes/root.js'
 import type { FetchContext } from './types.js'
 
 export type ServerOptions = {
-	defaultOnlineStyleUrl: string
-	customMapPath: string
-	fallbackMapPath: string
+	defaultOnlineStyleUrl: string | URL
+	customMapPath: string | URL
+	fallbackMapPath: string | URL
 	keyPair?: {
 		publicKey: Uint8Array
 		secretKey: Uint8Array
@@ -103,20 +103,23 @@ function validateOptions(options: unknown): asserts options is ServerOptions {
 	assert('fallbackMapPath' in options, new TypeError('missing fallbackMapPath'))
 
 	assert(
-		typeof options.defaultOnlineStyleUrl === 'string',
-		new TypeError('defaultOnlineStyleUrl must be a string'),
+		typeof options.defaultOnlineStyleUrl === 'string' ||
+			options.defaultOnlineStyleUrl instanceof URL,
+		new TypeError('defaultOnlineStyleUrl must be a string or URL'),
 	)
 	assert(
 		URL.canParse(options.defaultOnlineStyleUrl),
 		new TypeError('defaultOnlineStyleUrl must be a valid URL'),
 	)
 	assert(
-		typeof options.customMapPath === 'string' && options.customMapPath,
-		new TypeError('customMapPath must be a string'),
+		(typeof options.customMapPath === 'string' && options.customMapPath) ||
+			options.customMapPath instanceof URL,
+		new TypeError('customMapPath must be a string or URL'),
 	)
 	assert(
-		typeof options.fallbackMapPath === 'string' && options.fallbackMapPath,
-		new TypeError('fallbackMapPath must be a string'),
+		(typeof options.fallbackMapPath === 'string' && options.fallbackMapPath) ||
+			options.fallbackMapPath instanceof URL,
+		new TypeError('fallbackMapPath must be a string or URL'),
 	)
 	const parsedOptions: ServerOptions = {
 		defaultOnlineStyleUrl: options.defaultOnlineStyleUrl,

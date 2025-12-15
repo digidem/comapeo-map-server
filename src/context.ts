@@ -40,8 +40,18 @@ export class Context {
 	}: ContextOptions) {
 		this.#defaultOnlineStyleUrl = new URL(defaultOnlineStyleUrl)
 		this.#mapFileUrls = new Map([
-			[CUSTOM_MAP_ID, pathToFileURL(customMapPath)],
-			[FALLBACK_MAP_ID, pathToFileURL(fallbackMapPath)],
+			[
+				CUSTOM_MAP_ID,
+				typeof customMapPath === 'string'
+					? pathToFileURL(customMapPath)
+					: customMapPath,
+			],
+			[
+				FALLBACK_MAP_ID,
+				typeof fallbackMapPath === 'string'
+					? pathToFileURL(fallbackMapPath)
+					: fallbackMapPath,
+			],
 		])
 		this.#keyPair = keyPair
 		this.getRemotePort = getRemotePort
