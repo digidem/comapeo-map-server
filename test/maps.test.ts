@@ -471,14 +471,16 @@ describe('Map Upload', () => {
 		const { localBaseUrl } = await startServer(t, {
 			customMapPath: nonExistentPath,
 		})
-		const fileBuffer1 = fs.readFileSync(DEMOTILES_Z2)
-		const fileBuffer2 = fs.readFileSync(OSM_BRIGHT_Z6)
+		// First file is the larger one, so theoretically it should take longer to
+		// upload - without the line waiting for the current upload for a mapId to
+		// complete, this test fails intermittently.
+		const fileBuffer1 = fs.readFileSync(OSM_BRIGHT_Z6)
+		const fileBuffer2 = fs.readFileSync(DEMOTILES_Z2)
 
-		const reader = new Reader(fileURLToPath(OSM_BRIGHT_Z6))
+		const reader = new Reader(fileURLToPath(DEMOTILES_Z2))
 		const expectedStyle = await reader.getStyle(
 			new URL('/maps/custom/', localBaseUrl).toString(),
 		)
-
 		// initially no custom map
 		const initialResponse = await fetch(
 			`${localBaseUrl}/maps/custom/style.json`,
@@ -493,6 +495,8 @@ describe('Map Upload', () => {
 				'Content-Type': 'application/octet-stream',
 			},
 		})
+
+		await new Promise((resolve) => setTimeout(resolve, 10))
 
 		const upload2 = fetch(`${localBaseUrl}/maps/custom`, {
 			method: 'PUT',
