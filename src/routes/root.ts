@@ -12,7 +12,13 @@ export function RootRouter({ base = '/' }, ctx: Context): RouterExternal {
 		base,
 		// The `error` handler will send a response with the status code from any
 		// thrown StatusError, or a 500 for any other errors.
-		catch: error,
+		catch: (e) => {
+			const errorResponse = error(e)
+			if (errorResponse.status === 500) {
+				console.error('Internal Server Error:', e)
+			}
+			return errorResponse
+		},
 		// Sends a 404 response for any requests that don't match a route, and for
 		// any request handlers that return JSON will send a JSON response.
 		finally: [(response) => response ?? error(404), json],
