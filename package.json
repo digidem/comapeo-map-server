@@ -24,7 +24,6 @@
 		"@trivago/prettier-plugin-sort-imports": "^6.0.0",
 		"@tsconfig/node18": "^18.2.6",
 		"@types/node": "^20.19.26",
-		"@vitest/coverage-v8": "^4.0.15",
 		"bogon": "^1.1.0",
 		"eslint": "^9.39.1",
 		"eventsource-client": "^1.2.0",

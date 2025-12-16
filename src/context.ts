@@ -59,6 +59,9 @@ export class Context {
 	getDefaultOnlineStyleUrl() {
 		return this.#defaultOnlineStyleUrl
 	}
+	getKeyPair() {
+		return this.#keyPair
+	}
 	async getMapInfo(mapId: string) {
 		const mapFileUrl = this.#mapFileUrls.get(mapId)
 		if (!mapFileUrl) {
@@ -98,6 +101,13 @@ export class Context {
 		const reader = new Reader(fileURLToPath(mapFileUrl))
 		this.#mapReaders.set(mapId, Promise.resolve(reader))
 		return Promise.resolve(reader)
+	}
+	createMapReadableStream(mapId: string) {
+		const mapFileUrl = this.#mapFileUrls.get(mapId)
+		if (!mapFileUrl) {
+			throw new StatusError(404, `Map ID not found: ${mapId}`)
+		}
+		return Readable.toWeb(fs.createReadStream(mapFileUrl))
 	}
 	/**
 	 * Creates a writable stream to write map data to the specified map ID.
