@@ -107,7 +107,9 @@ export class Context {
 		if (!mapFileUrl) {
 			throw new StatusError(404, `Map ID not found: ${mapId}`)
 		}
-		return Readable.toWeb(fs.createReadStream(mapFileUrl))
+		return Readable.toWeb(
+			fs.createReadStream(mapFileUrl),
+		) as ReadableStream<Uint8Array> // small discrepancy in types
 	}
 	/**
 	 * Creates a writable stream to write map data to the specified map ID.

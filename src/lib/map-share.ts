@@ -54,7 +54,7 @@ export class MapShare extends TypedEventTarget<
 	/**
 	 * Create a download response for the map share
 	 */
-	downloadResponse(readable: ReadableStream<Uint8Array>) {
+	downloadResponse(readable: ReadableStream): Response {
 		if (this.#download?.state.status === 'downloading') {
 			throw new StatusError(400, 'Download already in progress')
 		} else if (this.#download?.state.status === 'completed') {
@@ -116,7 +116,7 @@ export class DownloadResponse extends TypedEventTarget<
 	#bytesDownloaded = 0
 	#abortController = new AbortController()
 	#state: DownloadStateUpdate = { status: 'downloading', bytesDownloaded: 0 }
-	#response: any
+	#response: Response
 
 	constructor(readable: ReadableStream<Uint8Array>) {
 		super()
