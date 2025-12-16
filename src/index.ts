@@ -59,6 +59,7 @@ export function createServer(options: ServerOptions) {
 	const localHttpServer = http.createServer((req, res) => {
 		serverAdapter(req, res, { isLocalhost: true })
 	})
+
 	const remoteHttpServer = http.createServer((req, res) => {
 		serverAdapter(req, res, {
 			isLocalhost: false,
@@ -69,6 +70,17 @@ export function createServer(options: ServerOptions) {
 	const secretStreamServer = createSecretStreamServer(remoteHttpServer, {
 		keyPair: options.keyPair,
 	})
+
+	// Track connections for proper cleanup
+	const connections = new Set<any>()
+	const onConnection = (socket: any) => {
+		connections.add(socket)
+		socket.once('close', () => {
+			connections.delete(socket)
+		})
+	}
+	localHttpServer.on('connection', onConnection)
+	secretStreamServer.on('connection', onConnection)
 
 	return {
 		async listen(opts: ListenOptions = {}) {
@@ -84,8 +96,16 @@ export function createServer(options: ServerOptions) {
 			return { localPort, remotePort }
 		},
 		async close() {
+			// Remove connection listeners
+			localHttpServer.off('connection', onConnection)
+			secretStreamServer.off('connection', onConnection)
 			localHttpServer.close()
 			secretStreamServer.close()
+			// Destroy all active connections to ensure clean shutdown
+			for (const socket of connections) {
+				socket.destroy()
+			}
+			connections.clear()
 			await Promise.all([
 				once(localHttpServer, 'close'),
 				once(secretStreamServer, 'close'),
