@@ -4,13 +4,17 @@ import path from 'node:path'
 
 // @ts-expect-error - No types available
 import bogon from 'bogon'
+import ky from 'ky'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
+import { Agent as SecretStreamAgent } from 'secret-stream-http'
 import type { TestContext } from 'vitest'
+import z32 from 'z32'
 
 import type { ServerOptions } from '../src/index.js'
 import { createServer } from '../src/index.js'
 import { noop } from '../src/lib/utils.js'
+import { MapShareState } from '../src/types.js'
 
 export const OSM_BRIGHT_Z6 = new URL(
 	'./fixtures/osm-bright-z6.smp',
@@ -25,9 +29,10 @@ export const ONLINE_STYLE_URL = 'https://demotiles.maplibre.org/style.json'
 let tmpCounter = 0
 
 export async function startServer(
-	t: TestContext,
+	t: ((listener: () => Promise<void>) => void) | TestContext,
 	options?: Partial<ServerOptions>,
 ) {
+	const onTestFinished = 'onTestFinished' in t ? t.onTestFinished.bind(t) : t
 	const tmpCustomMapPath = path.join(
 		os.tmpdir(),
 		`custom-map-path-${tmpCounter++}.smp`,
@@ -42,13 +47,15 @@ export async function startServer(
 		}
 		// customMapPath can point to a path with no file (for testing non-existent maps)
 	}
+	const keyPair = options?.keyPair ?? SecretStreamAgent.keyPair()
 	const server = createServer({
 		defaultOnlineStyleUrl: ONLINE_STYLE_URL,
 		fallbackMapPath: DEMOTILES_Z2,
 		...options,
 		customMapPath: tmpCustomMapPath,
+		keyPair,
 	})
-	t.onTestFinished(async () => {
+	onTestFinished(async () => {
 		// Clean up the temp custom map file
 		await fs.unlink(tmpCustomMapPath).catch(noop)
 		await server.close()
@@ -62,6 +69,64 @@ export async function startServer(
 		remotePort,
 		localBaseUrl: `http://127.0.0.1:${localPort}`,
 		remoteBaseUrl: `http://${nonLoopbackIPv4}:${remotePort}`,
+		keyPair,
+	}
+}
+
+export async function startServers(
+	t: ((listener: () => Promise<void>) => void) | TestContext,
+	{
+		receiverOptions,
+		senderOptions,
+	}: {
+		receiverOptions?: Partial<ServerOptions>
+		senderOptions?: Partial<ServerOptions>
+	} = {},
+) {
+	// Deterministic key pairs for sender and receiver
+	const senderKeyPair =
+		senderOptions?.keyPair ?? SecretStreamAgent.keyPair(Buffer.alloc(32, 0))
+	const receiverKeyPair =
+		receiverOptions?.keyPair ?? SecretStreamAgent.keyPair(Buffer.alloc(32, 1))
+	const [sender, receiver] = await Promise.all([
+		startServer(t, { ...senderOptions, keyPair: senderKeyPair }),
+		startServer(t, {
+			...receiverOptions,
+			keyPair: receiverKeyPair,
+		}),
+	])
+	const receiverDeviceId = z32.encode(receiver.keyPair.publicKey)
+	const senderDeviceId = z32.encode(sender.keyPair.publicKey)
+	const kyDefaults = ky.create({ retry: 0, throwHttpErrors: false })
+	const senderLocal = kyDefaults.extend({ prefixUrl: sender.localBaseUrl })
+	const receiverLocal = kyDefaults.extend({ prefixUrl: receiver.localBaseUrl })
+	const senderRemote = kyDefaults.extend({ prefixUrl: sender.remoteBaseUrl })
+	const receiverRemote = kyDefaults.extend({
+		prefixUrl: receiver.remoteBaseUrl,
+	})
+	const createShare = () =>
+		senderLocal.post<MapShareState>('mapShares', {
+			json: {
+				mapId: 'custom',
+				receiverDeviceId: z32.encode(receiver.keyPair.publicKey),
+			},
+		})
+	return {
+		sender: senderLocal,
+		receiver: receiverLocal,
+		createShare,
+		senderRemote,
+		receiverRemote,
+		senderLocalBaseUrl: sender.localBaseUrl,
+		senderRemotePort: sender.remotePort,
+		senderKeyPair,
+		senderDeviceId,
+		senderRemoteBaseUrl: sender.remoteBaseUrl,
+		receiverLocalBaseUrl: receiver.localBaseUrl,
+		receiverLocalPort: receiver.localPort,
+		receiverKeyPair,
+		receiverDeviceId,
+		receiverRemoteBaseUrl: receiver.remoteBaseUrl,
 	}
 }
 

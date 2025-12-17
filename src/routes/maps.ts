@@ -13,7 +13,7 @@ import {
 	FALLBACK_MAP_ID,
 } from '../lib/constants.js'
 import { SelfEvictingPromiseMap } from '../lib/self-evicting-map.js'
-import { noop } from '../lib/utils.js'
+import { addTrailingSlash, noop } from '../lib/utils.js'
 
 type MapRequest = IRequestStrict & {
 	params: {
@@ -22,7 +22,7 @@ type MapRequest = IRequestStrict & {
 }
 
 export function MapsRouter({ base = '/' }, ctx: Context) {
-	base = base.endsWith('/') ? base : base + '/'
+	base = addTrailingSlash(base)
 	const activeUploads = new SelfEvictingPromiseMap<string, Promise<void>>()
 
 	const smpServer = createSmpServer({
@@ -34,7 +34,7 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 	router.get<MapRequest>(`/:mapId/info`, async (request) => {
 		const info = await ctx.getMapInfo(request.params.mapId)
 		return {
-			created: info.created,
+			created: info.mapCreated,
 			size: info.estimatedSizeBytes,
 			name: info.mapName,
 		}

@@ -8,7 +8,7 @@ import {
 	type MapInfo,
 } from '../types.js'
 import { StateUpdateEvent } from './state-update-event.js'
-import { generateId } from './utils.js'
+import { generateId, getErrorCode } from './utils.js'
 
 export type MapShareOptions = MapInfo & {
 	/**
@@ -36,9 +36,13 @@ export class MapShare extends TypedEventTarget<
 			...mapInfo,
 			shareId,
 			downloadUrls: baseUrls.map(
-				(baseUrl) => new URL(`${shareId}`, baseUrl).href,
+				(baseUrl) => new URL(`${shareId}/download`, baseUrl).href,
+			),
+			declineUrls: baseUrls.map(
+				(baseUrl) => new URL(`${shareId}/decline`, baseUrl).href,
 			),
 			receiverDeviceId,
+			mapShareCreated: Date.now(),
 			status: 'pending',
 		}
 	}
@@ -48,6 +52,7 @@ export class MapShare extends TypedEventTarget<
 	}
 
 	get state() {
+		// console.log('Getting map share state:', this.#state)
 		return this.#state
 	}
 
@@ -66,6 +71,7 @@ export class MapShare extends TypedEventTarget<
 		}
 		this.#download?.removeAllEventListeners()
 		this.#download = new DownloadResponse(readable)
+		console.log('Created download response for map share', this.shareId)
 		this.#download.addEventListener('update', (event) => {
 			this.#updateState(event)
 		})
@@ -97,7 +103,8 @@ export class MapShare extends TypedEventTarget<
 
 	#updateState(update: MapShareStateUpdate) {
 		this.#state = { ...this.#state, ...update }
-		this.dispatchEvent(new StateUpdateEvent(update))
+		console.log('state update for map share', this.shareId, { ...update })
+		queueMicrotask(() => this.dispatchEvent(new StateUpdateEvent(update)))
 	}
 }
 
@@ -141,8 +148,11 @@ export class DownloadResponse extends TypedEventTarget<
 				signal: this.#abortController.signal,
 			})
 			.catch((error) => {
+				console.log('Download pipeTo error:', error)
 				if (error.name === 'AbortError') {
 					this.#updateState({ status: 'canceled' })
+				} else if (getErrorCode(error) === 'ECONNRESET') {
+					this.#updateState({ status: 'aborted' })
 				} else {
 					this.#updateState({ status: 'error', error })
 				}
@@ -169,6 +179,7 @@ export class DownloadResponse extends TypedEventTarget<
 
 	#updateState(update: DownloadStateUpdate) {
 		this.#state = update
+		console.log('Download state update:', update)
 		this.dispatchEvent(new StateUpdateEvent(update))
 	}
 }

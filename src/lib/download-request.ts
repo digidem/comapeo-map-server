@@ -52,7 +52,11 @@ export class DownloadRequest extends TypedEventTarget<
 			(error) => {
 				// In case the error happens before we pipe to the stream, we need to abort the stream
 				stream.abort().catch(noop)
-				this.#updateState({ status: 'error', error })
+				if (error.name === 'AbortError') {
+					this.#updateState({ status: 'aborted' })
+				} else {
+					this.#updateState({ status: 'error', error })
+				}
 			},
 		)
 	}
@@ -74,25 +78,34 @@ export class DownloadRequest extends TypedEventTarget<
 		// one works
 		for (const url of downloadUrls) {
 			try {
+				console.log('Attempting to download from URL:', url)
 				response = (await secretStreamFetch(url, {
-					signal: this.#abortController.signal,
 					dispatcher: new SecretStreamAgent({ remotePublicKey, keyPair }),
 				})) as unknown as Response // Subtle difference bewteen Undici fetch Response and whatwg Response
 				break // Exit loop on successful fetch
-			} catch (error) {
-				if (error instanceof DOMException && error.name === 'AbortError') {
-					throw error // Handle abort in caller
-				}
-				// Otherwise, try the next URL
+			} catch {
+				// Ignore errors and try the next URL
 			}
 		}
 		if (!response) {
 			throw new Error('Could not connect to map share sender')
 		}
 		if (!response.ok || !response.body) {
+			console.log(
+				'Download failed with status:',
+				response.status,
+				await response.text(),
+			)
 			throw new StatusError(response.status, 'Failed to download map data')
 		}
-		await response.body.pipeThrough(this.#transform).pipeTo(stream)
+		console.log('GOT HERE ')
+		if (this.#abortController.signal.aborted) {
+			response.body.cancel().catch(noop)
+			throw new DOMException('Download aborted', 'AbortError')
+		}
+		await response.body.pipeThrough(this.#transform).pipeTo(stream, {
+			signal: this.#abortController.signal,
+		})
 		this.#updateState({ status: 'completed' })
 	}
 
@@ -105,6 +118,7 @@ export class DownloadRequest extends TypedEventTarget<
 	}
 
 	#updateState(update: DownloadStateUpdate) {
+		console.log('Download request state update:', { ...update })
 		this.#state = { ...this.#state, ...update }
 		this.dispatchEvent(new StateUpdateEvent(update))
 	}

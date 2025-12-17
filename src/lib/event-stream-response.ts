@@ -2,6 +2,7 @@ import type { TypedEventTarget } from 'typed-event-target'
 
 import type { DownloadRequest } from './download-request.js'
 import type { DownloadResponse } from './map-share.js'
+import { noop } from './utils.js'
 
 const encoder = new TextEncoder()
 
@@ -22,6 +23,7 @@ export function createEventStreamResponse(
 	{ signal }: { signal: AbortSignal },
 ): Response {
 	let listener: (event: Event & { type: 'update' }) => void | undefined
+
 	const stream = new ReadableStream({
 		start(controller) {
 			controller.enqueue(
@@ -36,16 +38,14 @@ export function createEventStreamResponse(
 			eventTarget.addEventListener('update', listener)
 		},
 		cancel() {
+			signal.removeEventListener('abort', onAbort)
 			listener && eventTarget.removeEventListener('update', listener)
 		},
 	})
-	signal.addEventListener(
-		'abort',
-		() => {
-			stream.cancel()
-		},
-		{ once: true },
-	)
+	const onAbort = () => {
+		stream.cancel().catch(noop)
+	}
+	signal.addEventListener('abort', onAbort, { once: true })
 	return new Response(stream, {
 		headers: {
 			'Content-Type': 'text/event-stream',

@@ -6,6 +6,7 @@ import { CUSTOM_MAP_ID } from '../lib/constants.js'
 import { DownloadRequest } from '../lib/download-request.js'
 import { createEventStreamResponse } from '../lib/event-stream-response.js'
 import { SelfEvictingTimeoutMap } from '../lib/self-evicting-map.js'
+import { addTrailingSlash } from '../lib/utils.js'
 import { parseRequest } from '../middlewares/parse-request.js'
 import {
 	DownloadUrls,
@@ -34,12 +35,19 @@ export function DownloadsRouter(
 
 	router.post('/', parseRequest(DownloadCreateRequest), async (request) => {
 		const writable = ctx.createMapWritableStream(CUSTOM_MAP_ID)
-		const download = new DownloadRequest(writable, request.parsed, ctx.getKeyPair())
+		const download = new DownloadRequest(
+			writable,
+			request.parsed,
+			ctx.getKeyPair(),
+		)
 		downloads.set(download.state.downloadId, download)
 		return Response.json(download.state, {
 			status: 201,
 			headers: {
-				Location: new URL(download.state.downloadId, request.url).href,
+				Location: new URL(
+					download.state.downloadId,
+					addTrailingSlash(request.url),
+				).href,
 			},
 		})
 	})

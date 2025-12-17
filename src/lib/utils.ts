@@ -107,3 +107,7 @@ export function getStyleMinZoom(style: SMPStyle): number {
 function isNonEmptyArray<T>(arr: T[]): arr is [T, ...T[]] {
 	return arr.length > 0
 }
+
+export function addTrailingSlash(url: string): string {
+	return url.endsWith('/') ? url : url + '/'
+}

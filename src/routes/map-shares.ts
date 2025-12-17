@@ -1,16 +1,28 @@
 import os from 'node:os'
 
-import { IRequestStrict, IttyRouter, StatusError } from 'itty-router'
-import { Type as T } from 'typebox'
+import {
+	IRequestStrict,
+	IttyRouter,
+	StatusError,
+	type RequestHandler,
+} from 'itty-router'
+import {
+	fetch as secretStreamFetch,
+	Agent as SecretStreamAgent,
+} from 'secret-stream-http'
+import { Type as T, type Static } from 'typebox'
+import { Compile } from 'typebox/compile'
+import z32 from 'z32'
 
 import type { Context } from '../context.js'
 import { createEventStreamResponse } from '../lib/event-stream-response.js'
 import { MapShare } from '../lib/map-share.js'
 import { SelfEvictingTimeoutMap } from '../lib/self-evicting-map.js'
-import { timingSafeEqual } from '../lib/utils.js'
+import { addTrailingSlash, timingSafeEqual } from '../lib/utils.js'
 import { localhostOnly } from '../middlewares/localhost-only.js'
 import { parseRequest } from '../middlewares/parse-request.js'
 import {
+	DeclineUrls,
 	MapShareDeclineReason,
 	MapShareState,
 	type FetchContext,
@@ -22,9 +34,22 @@ const MapShareCreateRequest = T.Object({
 	receiverDeviceId: T.String(),
 })
 
-const MapShareDeclineRequest = T.Object({
+const LocalMapShareDeclineRequest = T.Object({
+	reason: MapShareDeclineReason,
+	declineUrls: DeclineUrls,
+	senderDeviceId: T.String({
+		description: 'The ID of the device that is sending the map share',
+	}),
+})
+
+const RemoteMapShareDeclineRequest = T.Object({
 	reason: MapShareDeclineReason,
 })
+
+const CompiledLocalMapShareDeclineRequest = Compile(LocalMapShareDeclineRequest)
+const CompiledRemoteMapShareDeclineRequest = Compile(
+	RemoteMapShareDeclineRequest,
+)
 
 export function MapSharesRouter(
 	{ base }: { base: string },
@@ -52,7 +77,8 @@ export function MapSharesRouter(
 			return Response.json(mapShare.state, {
 				status: 201,
 				headers: {
-					Location: new URL(mapShare.shareId, request.url).href,
+					Location: new URL(mapShare.shareId, addTrailingSlash(request.url))
+						.href,
 				},
 			})
 		},
@@ -106,18 +132,72 @@ export function MapSharesRouter(
 	})
 
 	router.get('/:shareId/download', async (request): Promise<Response> => {
+		console.log('Download requested for map share', request.params.shareId)
 		const mapShare = getMapShare(request.params.shareId)
+		console.log('Starting download for map share', mapShare.shareId)
 		const stream = ctx.createMapReadableStream(mapShare.state.mapId)
 		return mapShare.downloadResponse(stream)
 	})
 
+	const localDeclineHandler: RequestHandler = async (request) => {
+		let parsedBody: Static<typeof LocalMapShareDeclineRequest>
+		try {
+			const json = await request.json()
+			parsedBody = CompiledLocalMapShareDeclineRequest.Parse(json)
+		} catch (err) {
+			throw new StatusError(400, 'Invalid Request')
+		}
+		const { senderDeviceId, declineUrls, reason } = parsedBody
+		const remotePublicKey = z32.decode(senderDeviceId)
+		const keyPair = ctx.getKeyPair()
+		let response: Response | undefined
+		// The sharer could have multiple IPs for different network interfaces, and
+		// not all of them may be on the same network as us, so try each URL until
+		// one works
+		for (const url of declineUrls) {
+			try {
+				response = (await secretStreamFetch(url, {
+					method: 'POST',
+					body: JSON.stringify({ reason }),
+					signal: request.signal,
+					dispatcher: new SecretStreamAgent({ remotePublicKey, keyPair }),
+				})) as unknown as Response // Subtle difference bewteen Undici fetch Response and whatwg Response
+				break // Exit loop on successful fetch
+			} catch (error) {
+				if (error instanceof DOMException && error.name === 'AbortError') {
+					throw error // Handle abort in caller
+				}
+				// Otherwise, try the next URL
+			}
+		}
+		if (!response) {
+			throw new StatusError(500, 'Could not connect to map share sender')
+		}
+		return new Response(null, { status: 204 })
+	}
+
+	const remoteDeclineHandler: RequestHandler = async (request) => {
+		let parsedBody: Static<typeof RemoteMapShareDeclineRequest>
+		try {
+			const json = await request.json()
+			parsedBody = CompiledRemoteMapShareDeclineRequest.Parse(json)
+		} catch {
+			throw new StatusError(400, 'Invalid Request')
+		}
+		const { reason } = parsedBody
+		const mapShare = getMapShare(request.params.shareId)
+		mapShare.decline(reason)
+		return new Response(null, { status: 204 })
+	}
+
 	router.post(
 		'/:shareId/decline',
-		parseRequest(MapShareDeclineRequest),
-		async (request): Promise<Response> => {
-			const mapShare = getMapShare(request.params.shareId)
-			mapShare.decline(request.parsed.reason)
-			return new Response(null, { status: 204 })
+		async (request, { isLocalhost }): Promise<Response> => {
+			if (isLocalhost) {
+				return localDeclineHandler(request)
+			} else {
+				return remoteDeclineHandler(request)
+			}
 		},
 	)
 
@@ -136,7 +216,7 @@ export function MapSharesRouter(
  * Get the base URLs for downloads for all non-internal IPv4 addresses of the machine
  */
 function getRemoteBaseUrls(requestUrl: string, remotePort: number): string[] {
-	requestUrl = requestUrl.endsWith('/') ? requestUrl : requestUrl + '/'
+	requestUrl = addTrailingSlash(requestUrl)
 	const interfaces = os.networkInterfaces()
 	const baseUrls: string[] = []
 	for (const iface of Object.values(interfaces)) {

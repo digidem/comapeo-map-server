@@ -86,7 +86,7 @@ export class Context {
 			maxzoom: getStyleMaxZoom(style),
 			minzoom: getStyleMinZoom(style),
 			estimatedSizeBytes: stats.size,
-			created: stats.ctimeMs,
+			mapCreated: stats.ctimeMs,
 		}
 	}
 	getReader(mapId: string) {
