@@ -8,8 +8,9 @@ import z32 from 'z32'
 import { TypedEventTarget } from '../lib/event-target.js'
 import type { DownloadCreateRequest } from '../routes/downloads.js'
 import { type DownloadStateUpdate } from '../types.js'
+import { errors, jsonError } from './errors.js'
 import { StateUpdateEvent } from './state-update-event.js'
-import { generateId, noop } from './utils.js'
+import { generateId, getErrorCode, noop } from './utils.js'
 
 type DownloadRequestState = DownloadStateUpdate &
 	Omit<DownloadCreateRequest, 'downloadUrls'> & { downloadId: string }
@@ -46,7 +47,9 @@ export class DownloadRequest extends TypedEventTarget<
 		}
 		const remotePublicKey = z32.decode(this.#state.senderDeviceId)
 		if (!remotePublicKey || remotePublicKey.length !== 32) {
-			throw new StatusError(400, 'Invalid senderDeviceId')
+			throw new errors.INVALID_SENDER_DEVICE_ID(
+				`Invalid sender device ID: ${this.#state.senderDeviceId}`,
+			)
 		}
 		this.#start({ downloadUrls, stream, remotePublicKey, keyPair }).catch(
 			(error) => {
@@ -54,8 +57,11 @@ export class DownloadRequest extends TypedEventTarget<
 				stream.abort().catch(noop)
 				if (error.name === 'AbortError') {
 					this.#updateState({ status: 'aborted' })
+				} else if (getErrorCode(error) === 'DOWNLOAD_MAP_SHARE_NOT_PENDING') {
+					this.#updateState({ status: 'canceled' })
 				} else {
-					this.#updateState({ status: 'error', error })
+					console.log('ERROR CODE', getErrorCode(error))
+					this.#updateState({ status: 'error', error: jsonError(error) })
 				}
 			},
 		)
@@ -87,16 +93,11 @@ export class DownloadRequest extends TypedEventTarget<
 				// Ignore errors and try the next URL
 			}
 		}
-		if (!response) {
-			throw new Error('Could not connect to map share sender')
+		if (!response || !response.body) {
+			throw new errors.DOWNLOAD_ERROR('Could not connect to map share sender')
 		}
-		if (!response.ok || !response.body) {
-			console.log(
-				'Download failed with status:',
-				response.status,
-				await response.text(),
-			)
-			throw new StatusError(response.status, 'Failed to download map data')
+		if (!response.ok) {
+			throw new StatusError(response.status, await response.json())
 		}
 		console.log('GOT HERE ')
 		if (this.#abortController.signal.aborted) {

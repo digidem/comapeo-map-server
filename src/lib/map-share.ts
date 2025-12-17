@@ -1,5 +1,3 @@
-import { StatusError } from 'itty-router'
-
 import { TypedEventTarget } from '../lib/event-target.js'
 import {
 	MapShareState,
@@ -7,6 +5,7 @@ import {
 	type DownloadStateUpdate,
 	type MapInfo,
 } from '../types.js'
+import { errors } from './errors.js'
 import { StateUpdateEvent } from './state-update-event.js'
 import { generateId, getErrorCode } from './utils.js'
 
@@ -60,18 +59,13 @@ export class MapShare extends TypedEventTarget<
 	 * Create a download response for the map share
 	 */
 	downloadResponse(readable: ReadableStream): Response {
-		if (this.#download?.state.status === 'downloading') {
-			throw new StatusError(400, 'Download already in progress')
-		} else if (this.#download?.state.status === 'completed') {
-			throw new StatusError(400, 'Download already completed')
-		} else if (this.#state.status === 'declined') {
-			throw new StatusError(400, 'Map share has been declined')
-		} else if (this.#state.status === 'canceled') {
-			throw new StatusError(400, 'Map share has been canceled')
+		if (this.#state.status !== 'pending') {
+			throw new errors.DOWNLOAD_MAP_SHARE_NOT_PENDING(
+				`Cannot download map share in status '${this.#state.status}'`,
+			)
 		}
 		this.#download?.removeAllEventListeners()
 		this.#download = new DownloadResponse(readable)
-		console.log('Created download response for map share', this.shareId)
 		this.#download.addEventListener('update', (event) => {
 			this.#updateState(event)
 		})
@@ -85,7 +79,9 @@ export class MapShare extends TypedEventTarget<
 		reason: Extract<MapShareStateUpdate, { status: 'declined' }>['reason'],
 	) {
 		if (this.#state.status !== 'pending') {
-			throw new StatusError(400, 'Can only decline pending map shares')
+			throw new errors.DECLINE_NOT_PENDING(
+				`Cannot decline map share in status '${this.#state.status}'`,
+			)
 		}
 		this.#updateState({ status: 'declined', reason })
 	}
@@ -94,8 +90,13 @@ export class MapShare extends TypedEventTarget<
 	 * Cancel the map share
 	 */
 	cancel() {
-		if (this.#state.status === 'completed') {
-			throw new StatusError(400, 'Cannot cancel completed map share')
+		if (
+			this.#state.status !== 'pending' &&
+			this.#state.status !== 'downloading'
+		) {
+			throw new errors.CANCEL_NOT_PENDING_OR_DOWNLOADING(
+				`Cannot cancel map share in status '${this.#state.status}'`,
+			)
 		}
 		this.#download?.cancel()
 		this.#updateState({ status: 'canceled' })

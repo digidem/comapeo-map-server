@@ -15,6 +15,7 @@ import { Compile } from 'typebox/compile'
 import z32 from 'z32'
 
 import type { Context } from '../context.js'
+import { errors } from '../lib/errors.js'
 import { createEventStreamResponse } from '../lib/event-stream-response.js'
 import { MapShare } from '../lib/map-share.js'
 import { SelfEvictingTimeoutMap } from '../lib/self-evicting-map.js'
@@ -30,14 +31,15 @@ import {
 } from '../types.js'
 
 const MapShareCreateRequest = T.Object({
-	mapId: T.String(),
-	receiverDeviceId: T.String(),
+	mapId: T.String({ minLength: 1 }),
+	receiverDeviceId: T.String({ minLength: 1 }),
 })
 
 const LocalMapShareDeclineRequest = T.Object({
 	reason: MapShareDeclineReason,
 	declineUrls: DeclineUrls,
 	senderDeviceId: T.String({
+		minLength: 1,
 		description: 'The ID of the device that is sending the map share',
 	}),
 })
@@ -143,8 +145,12 @@ export function MapSharesRouter(
 		let parsedBody: Static<typeof LocalMapShareDeclineRequest>
 		try {
 			const json = await request.json()
-			parsedBody = CompiledLocalMapShareDeclineRequest.Parse(json)
+			if (!CompiledLocalMapShareDeclineRequest.Check(json)) {
+				throw new StatusError(400, 'Invalid Request')
+			}
+			parsedBody = json
 		} catch (err) {
+			if (err instanceof StatusError) throw err
 			throw new StatusError(400, 'Invalid Request')
 		}
 		const { senderDeviceId, declineUrls, reason } = parsedBody
@@ -170,8 +176,12 @@ export function MapSharesRouter(
 				// Otherwise, try the next URL
 			}
 		}
-		if (!response) {
-			throw new StatusError(500, 'Could not connect to map share sender')
+		if (!response || !response.body) {
+			throw new errors.DECLINE_CANNOT_CONNECT()
+		}
+		if (!response.ok) {
+			// pass through error from sender
+			throw new StatusError(response.status, await response.json())
 		}
 		return new Response(null, { status: 204 })
 	}
@@ -180,8 +190,12 @@ export function MapSharesRouter(
 		let parsedBody: Static<typeof RemoteMapShareDeclineRequest>
 		try {
 			const json = await request.json()
-			parsedBody = CompiledRemoteMapShareDeclineRequest.Parse(json)
-		} catch {
+			if (!CompiledRemoteMapShareDeclineRequest.Check(json)) {
+				throw new StatusError(400, 'Invalid Request')
+			}
+			parsedBody = json
+		} catch (err) {
+			if (err instanceof StatusError) throw err
 			throw new StatusError(400, 'Invalid Request')
 		}
 		const { reason } = parsedBody
@@ -206,7 +220,7 @@ export function MapSharesRouter(
 	function getMapShare(shareId: string) {
 		const mapShare = mapShares.get(shareId)
 		if (!mapShare) {
-			throw new StatusError(404, 'Map share not found')
+			throw new errors.MAP_SHARE_NOT_FOUND(`Map share ID not found: ${shareId}`)
 		}
 		return mapShare
 	}

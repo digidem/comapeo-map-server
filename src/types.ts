@@ -11,6 +11,7 @@ export const MapShareDeclineReason = T.Union([
 		description: 'The map share was declined by the user',
 	}),
 	T.String({
+		minLength: 1,
 		description: 'Other reason for declining the map share',
 	}),
 ])
@@ -53,9 +54,15 @@ const MapShareStateUpdate = T.Union([
 		status: T.Literal('error', {
 			description: 'An error occurred while downloading',
 		}),
-		error: T.Any({
-			description: 'Error that occurred while receiving the map share',
-		}),
+		error: T.Object(
+			{
+				message: T.String({ description: 'Error message' }),
+				code: T.String({ description: 'Error code' }),
+			},
+			{
+				description: 'Error that occurred while receiving the map share',
+			},
+		),
 	}),
 ])
 
@@ -76,7 +83,10 @@ export const DeclineUrls = T.Array(T.String({ format: 'uri' }), {
 	description: 'List of URLs to decline the map share',
 })
 export type DownloadUrls = Static<typeof DownloadUrls>
-export const ShareId = T.String({ description: 'The ID of the map share' })
+export const ShareId = T.String({
+	minLength: 1,
+	description: 'The ID of the map share',
+})
 export type ShareId = Static<typeof ShareId>
 export const EstimatedSizeBytes = T.Number({
 	description: 'Estimated size of the map data in bytes',
