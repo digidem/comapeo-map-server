@@ -1,19 +1,17 @@
 import { StatusError } from 'itty-router'
-import {
-	fetch as secretStreamFetch,
-	Agent as SecretStreamAgent,
-} from 'secret-stream-http'
+import { Agent as SecretStreamAgent } from 'secret-stream-http'
 import z32 from 'z32'
 
 import { TypedEventTarget } from '../lib/event-target.js'
 import type { DownloadCreateRequest } from '../routes/downloads.js'
 import { type DownloadStateUpdate } from '../types.js'
 import { errors, jsonError } from './errors.js'
+import { secretStreamFetch } from './secret-stream-fetch.js'
 import { StateUpdateEvent } from './state-update-event.js'
-import { generateId, getErrorCode, noop } from './utils.js'
+import { addTrailingSlash, generateId, getErrorCode, noop } from './utils.js'
 
 type DownloadRequestState = DownloadStateUpdate &
-	Omit<DownloadCreateRequest, 'downloadUrls'> & { downloadId: string }
+	Omit<DownloadCreateRequest, 'mapShareUrls'> & { downloadId: string }
 
 export class DownloadRequest extends TypedEventTarget<
 	InstanceType<typeof StateUpdateEvent<DownloadStateUpdate>>
@@ -32,10 +30,11 @@ export class DownloadRequest extends TypedEventTarget<
 			controller.enqueue(chunk)
 		},
 	})
+	#dispatcher: SecretStreamAgent
 
 	constructor(
 		stream: WritableStream<Uint8Array>,
-		{ downloadUrls, ...rest }: DownloadCreateRequest,
+		{ mapShareUrls, ...rest }: DownloadCreateRequest,
 		keyPair: { publicKey: Uint8Array; secretKey: Uint8Array },
 	) {
 		super()
@@ -51,8 +50,9 @@ export class DownloadRequest extends TypedEventTarget<
 				`Invalid sender device ID: ${this.#state.senderDeviceId}`,
 			)
 		}
-		this.#start({ downloadUrls, stream, remotePublicKey, keyPair }).catch(
-			(error) => {
+		this.#dispatcher = new SecretStreamAgent({ remotePublicKey, keyPair })
+		this.#start({ mapShareUrls, stream, remotePublicKey, keyPair }).catch(
+			async (error) => {
 				// In case the error happens before we pipe to the stream, we need to abort the stream
 				stream.abort().catch(noop)
 				if (error.name === 'AbortError') {
@@ -60,7 +60,26 @@ export class DownloadRequest extends TypedEventTarget<
 				} else if (getErrorCode(error) === 'DOWNLOAD_MAP_SHARE_NOT_PENDING') {
 					this.#updateState({ status: 'canceled' })
 				} else {
-					console.log('ERROR CODE', getErrorCode(error))
+					// Once the download has started, the sender can only close the
+					// connection to cancel the download, which we only see as an
+					// ECONNRESET error here, which could happen for multiple reasons.
+					// Rather than immediately updating the state to error, we first check
+					// with the sender to see if we can access the status of the share,
+					// namely whether it was canceled, or if a different error occurred on
+					// the server side.
+					try {
+						const response = await secretStreamFetch(mapShareUrls, {
+							dispatcher: this.#dispatcher,
+							signal: AbortSignal.timeout(2000),
+						})
+						const json = await response.json()
+						if (json.status) {
+							this.#updateState({ status: json.status, error: json.error })
+							return
+						}
+					} catch (err) {
+						// Ignore errors from checking the status and update state with original error
+					}
 					this.#updateState({ status: 'error', error: jsonError(error) })
 				}
 			},
@@ -68,38 +87,28 @@ export class DownloadRequest extends TypedEventTarget<
 	}
 
 	async #start({
-		downloadUrls,
+		mapShareUrls,
 		stream,
 		remotePublicKey,
 		keyPair,
 	}: {
-		downloadUrls: string[]
+		mapShareUrls: string[]
 		stream: WritableStream<Uint8Array>
 		remotePublicKey: Uint8Array
 		keyPair: { publicKey: Uint8Array; secretKey: Uint8Array }
 	}) {
-		let response: Response | undefined
-		// The sharer could have multiple IPs for different network interfaces, and
-		// not all of them may be on the same network as us, so try each URL until
-		// one works
-		for (const url of downloadUrls) {
-			try {
-				console.log('Attempting to download from URL:', url)
-				response = (await secretStreamFetch(url, {
-					dispatcher: new SecretStreamAgent({ remotePublicKey, keyPair }),
-				})) as unknown as Response // Subtle difference bewteen Undici fetch Response and whatwg Response
-				break // Exit loop on successful fetch
-			} catch {
-				// Ignore errors and try the next URL
-			}
-		}
-		if (!response || !response.body) {
+		const downloadUrls = mapShareUrls.map(
+			(baseUrl) => new URL('download', addTrailingSlash(baseUrl)),
+		)
+		const response = await secretStreamFetch(downloadUrls, {
+			dispatcher: this.#dispatcher,
+		})
+		if (!response.body) {
 			throw new errors.DOWNLOAD_ERROR('Could not connect to map share sender')
 		}
 		if (!response.ok) {
 			throw new StatusError(response.status, await response.json())
 		}
-		console.log('GOT HERE ')
 		if (this.#abortController.signal.aborted) {
 			response.body.cancel().catch(noop)
 			throw new DOMException('Download aborted', 'AbortError')
@@ -119,7 +128,6 @@ export class DownloadRequest extends TypedEventTarget<
 	}
 
 	#updateState(update: DownloadStateUpdate) {
-		console.log('Download request state update:', { ...update })
 		this.#state = { ...this.#state, ...update }
 		this.dispatchEvent(new StateUpdateEvent(update))
 	}

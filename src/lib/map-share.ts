@@ -7,7 +7,7 @@ import {
 } from '../types.js'
 import { errors } from './errors.js'
 import { StateUpdateEvent } from './state-update-event.js'
-import { generateId, getErrorCode } from './utils.js'
+import { addTrailingSlash, generateId, getErrorCode } from './utils.js'
 
 export type MapShareOptions = MapInfo & {
 	/**
@@ -34,11 +34,8 @@ export class MapShare extends TypedEventTarget<
 		this.#state = {
 			...mapInfo,
 			shareId,
-			downloadUrls: baseUrls.map(
-				(baseUrl) => new URL(`${shareId}/download`, baseUrl).href,
-			),
-			declineUrls: baseUrls.map(
-				(baseUrl) => new URL(`${shareId}/decline`, baseUrl).href,
+			mapShareUrls: baseUrls.map(
+				(baseUrl) => new URL(`${shareId}`, addTrailingSlash(baseUrl)).href,
 			),
 			receiverDeviceId,
 			mapShareCreated: Date.now(),
@@ -51,7 +48,6 @@ export class MapShare extends TypedEventTarget<
 	}
 
 	get state() {
-		// console.log('Getting map share state:', this.#state)
 		return this.#state
 	}
 
@@ -104,7 +100,6 @@ export class MapShare extends TypedEventTarget<
 
 	#updateState(update: MapShareStateUpdate) {
 		this.#state = { ...this.#state, ...update }
-		console.log('state update for map share', this.shareId, { ...update })
 		queueMicrotask(() => this.dispatchEvent(new StateUpdateEvent(update)))
 	}
 }
@@ -147,9 +142,10 @@ export class DownloadResponse extends TypedEventTarget<
 		readable
 			.pipeTo(this.#stream.writable, {
 				signal: this.#abortController.signal,
+				// preventAbort: true,
+				// preventCancel: true,
 			})
 			.catch((error) => {
-				console.log('Download pipeTo error:', error)
 				if (error.name === 'AbortError') {
 					this.#updateState({ status: 'canceled' })
 				} else if (getErrorCode(error) === 'ECONNRESET') {
@@ -180,7 +176,6 @@ export class DownloadResponse extends TypedEventTarget<
 
 	#updateState(update: DownloadStateUpdate) {
 		this.#state = update
-		console.log('Download state update:', update)
 		this.dispatchEvent(new StateUpdateEvent(update))
 	}
 }

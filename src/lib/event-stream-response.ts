@@ -1,7 +1,5 @@
 import type { TypedEventTarget } from 'typed-event-target'
 
-import type { DownloadRequest } from './download-request.js'
-import type { DownloadResponse } from './map-share.js'
 import { noop } from './utils.js'
 
 const encoder = new TextEncoder()

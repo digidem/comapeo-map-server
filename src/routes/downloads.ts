@@ -10,7 +10,7 @@ import { SelfEvictingTimeoutMap } from '../lib/self-evicting-map.js'
 import { addTrailingSlash } from '../lib/utils.js'
 import { parseRequest } from '../middlewares/parse-request.js'
 import {
-	DownloadUrls,
+	MapShareUrls,
 	EstimatedSizeBytes,
 	ShareId,
 	type RouterExternal,
@@ -21,7 +21,7 @@ const DownloadCreateRequest = T.Object({
 		minLength: 1,
 		description: 'The ID of the device that is sending the map share',
 	}),
-	downloadUrls: DownloadUrls,
+	mapShareUrls: MapShareUrls,
 	shareId: ShareId,
 	estimatedSizeBytes: EstimatedSizeBytes,
 })
@@ -59,13 +59,11 @@ export function DownloadsRouter(
 	})
 
 	router.get('/:downloadId', async (request) => {
-		console.log('DOWNLOAD', getDownload(request.params.downloadId).state)
 		return getDownload(request.params.downloadId).state
 	})
 
 	router.get('/:downloadId/events', async (request): Promise<Response> => {
 		const download = getDownload(request.params.downloadId)
-		console.log('DOWNLOAD EVENTS', download.state)
 		return createEventStreamResponse(download, { signal: request.signal })
 	})
 

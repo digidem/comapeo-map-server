@@ -74,15 +74,11 @@ export type DownloadStateUpdate = Extract<
 	{ status: 'downloading' | 'completed' | 'error' | 'canceled' | 'aborted' }
 >
 
-export const DownloadUrls = T.Array(T.String({ format: 'uri' }), {
+export const MapShareUrls = T.Array(T.String({ format: 'uri' }), {
 	minItems: 1,
-	description: 'List of URLs to download the map data from',
+	description:
+		'List of map share URLs (for each network interface of the sharer)',
 })
-export const DeclineUrls = T.Array(T.String({ format: 'uri' }), {
-	minItems: 1,
-	description: 'List of URLs to decline the map share',
-})
-export type DownloadUrls = Static<typeof DownloadUrls>
 export const ShareId = T.String({
 	minLength: 1,
 	description: 'The ID of the map share',
@@ -114,8 +110,7 @@ const MapShareBase = T.Intersect([
 			description: 'The ID of the device that can receive the map share',
 		}),
 		shareId: ShareId,
-		downloadUrls: DownloadUrls,
-		declineUrls: DeclineUrls,
+		mapShareUrls: MapShareUrls,
 		mapShareCreated: T.Number({
 			description: 'Timestamp (ms since epoch) when the map share was created',
 		}),

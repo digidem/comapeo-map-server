@@ -35,17 +35,14 @@ describe('Map Shares and Downloads', () => {
 				shareId,
 				mapShareCreated,
 				mapCreated,
-				downloadUrls,
-				declineUrls,
+				mapShareUrls,
 				...deterministic
 			} = share as MapShareState
 			expect(deterministic).toMatchSnapshot()
 			expect(mapShareCreated).toBeGreaterThanOrEqual(timeBeforeRequest)
 			expect(mapShareCreated).toBeLessThanOrEqual(Date.now())
-			expect(downloadUrls.length).toBe(1)
-			expect(downloadUrls[0]).toMatch(`/mapShares/${shareId}/download`)
-			expect(declineUrls.length).toBe(1)
-			expect(declineUrls[0]).toMatch(`/mapShares/${shareId}/decline`)
+			expect(mapShareUrls.length).toBe(1)
+			expect(mapShareUrls[0]).toMatch(`/mapShares/${shareId}`)
 			expect(share).toHaveProperty('status', 'pending')
 
 			// Check Location header points to the new share
@@ -104,7 +101,7 @@ describe('Map Shares and Downloads', () => {
 		it('should decline a map share from receiver', async (t) => {
 			const { sender, createShare, receiver, senderDeviceId } =
 				await startServers(t)
-			const { shareId, declineUrls } = await createShare().json()
+			const { shareId, mapShareUrls } = await createShare().json()
 
 			// Decline it
 			const declineResponse = await receiver.post(
@@ -113,7 +110,7 @@ describe('Map Shares and Downloads', () => {
 					json: {
 						reason: 'user_rejected',
 						senderDeviceId,
-						declineUrls,
+						mapShareUrls,
 					},
 				},
 			)
@@ -150,7 +147,7 @@ describe('Map Shares and Downloads', () => {
 				comparableStyle(initialReceiverStyle),
 			)
 
-			const { shareId, downloadUrls, estimatedSizeBytes } =
+			const { shareId, mapShareUrls, estimatedSizeBytes } =
 				await createShare().json()
 
 			// Now create a download on the receiver using the real share
@@ -158,7 +155,7 @@ describe('Map Shares and Downloads', () => {
 				json: {
 					senderDeviceId,
 					shareId,
-					downloadUrls,
+					mapShareUrls,
 					estimatedSizeBytes,
 				},
 			})
@@ -205,15 +202,8 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('should list all downloads', async (t) => {
-			const {
-				senderLocalBaseUrl,
-				receiverLocalBaseUrl,
-				receiverDeviceId,
-				senderDeviceId,
-				createShare,
-				receiver,
-			} = await startServers(t)
-			const { shareId, downloadUrls, estimatedSizeBytes } =
+			const { senderDeviceId, createShare, receiver } = await startServers(t)
+			const { shareId, mapShareUrls, estimatedSizeBytes } =
 				await createShare().json()
 
 			// Now create a download on the receiver using the real share
@@ -222,7 +212,7 @@ describe('Map Shares and Downloads', () => {
 					json: {
 						senderDeviceId,
 						shareId,
-						downloadUrls,
+						mapShareUrls,
 						estimatedSizeBytes,
 					},
 				})
@@ -233,7 +223,7 @@ describe('Map Shares and Downloads', () => {
 
 		it('should get a specific download', async (t) => {
 			const { senderDeviceId, createShare, receiver } = await startServers(t)
-			const { shareId, downloadUrls, estimatedSizeBytes } =
+			const { shareId, mapShareUrls, estimatedSizeBytes } =
 				await createShare().json()
 
 			const download = await receiver
@@ -241,7 +231,7 @@ describe('Map Shares and Downloads', () => {
 					json: {
 						senderDeviceId,
 						shareId,
-						downloadUrls,
+						mapShareUrls,
 						estimatedSizeBytes,
 					},
 				})
@@ -291,7 +281,7 @@ describe('Map Shares and Downloads', () => {
 					body: JSON.stringify({
 						senderDeviceId,
 						shareId: 'test-share',
-						downloadUrls: ['http://example.com/download'],
+						mapShareUrls: ['http://example.com/download'],
 						estimatedSizeBytes: 1000,
 					}),
 				},
@@ -343,13 +333,13 @@ describe('Map Shares and Downloads', () => {
 		it('should reject downloads GET routes from non-localhost', async (t) => {
 			const { receiverRemoteBaseUrl, receiver, createShare, senderDeviceId } =
 				await startServers(t)
-			const { shareId, downloadUrls } = await createShare().json()
+			const { shareId, mapShareUrls } = await createShare().json()
 			const { downloadId } = await receiver
 				.post(`downloads`, {
 					json: {
 						senderDeviceId,
 						shareId,
-						downloadUrls,
+						mapShareUrls,
 						estimatedSizeBytes: 1000,
 					},
 				})
@@ -373,13 +363,13 @@ describe('Map Shares and Downloads', () => {
 		it('should reject canceling download from non-localhost', async (t) => {
 			const { receiverRemoteBaseUrl, receiver, createShare, senderDeviceId } =
 				await startServers(t)
-			const { shareId, downloadUrls } = await createShare().json()
+			const { shareId, mapShareUrls } = await createShare().json()
 			const { downloadId } = await receiver
 				.post(`downloads`, {
 					json: {
 						senderDeviceId,
 						shareId,
-						downloadUrls,
+						mapShareUrls,
 						estimatedSizeBytes: 1000,
 					},
 				})
@@ -454,57 +444,57 @@ describe('Map Shares and Downloads', () => {
 
 			it('should reject decline with invalid body (localhost)', async (t) => {
 				const { receiver, createShare, senderDeviceId } = await startServers(t)
-				const { shareId, declineUrls } = await createShare().json()
+				const { shareId, mapShareUrls } = await createShare().json()
 
 				const invalidBodies = [
 					{
-						// Missing senderDeviceId and declineUrls
+						// Missing senderDeviceId and mapShareUrls
 						reason: 'user_rejected',
 					},
 					{
-						// Missing declineUrls
+						// Missing mapShareUrls
 						reason: 'user_rejected',
 						senderDeviceId,
 					},
 					{
 						// Missing senderDeviceId
 						reason: 'user_rejected',
-						declineUrls,
+						mapShareUrls,
 					},
 					{
 						// Missing reason
 						senderDeviceId,
-						declineUrls,
+						mapShareUrls,
 					},
 					{
 						// Invalid type for reason
 						reason: 123,
 						senderDeviceId,
-						declineUrls,
+						mapShareUrls,
 					},
 					{
 						// Invalid type for senderDeviceId
 						reason: 'user_rejected',
 						senderDeviceId: 123,
-						declineUrls,
+						mapShareUrls,
 					},
 					{
-						// Invalid type for declineUrls (not array)
+						// Invalid type for mapShareUrls (not array)
 						reason: 'user_rejected',
 						senderDeviceId,
-						declineUrls: 'not-an-array',
+						mapShareUrls: 'not-an-array',
 					},
 					{
-						// Empty declineUrls array
+						// Empty mapShareUrls array
 						reason: 'user_rejected',
 						senderDeviceId,
-						declineUrls: [],
+						mapShareUrls: [],
 					},
 					{
-						// Invalid URLs in declineUrls
+						// Invalid URLs in mapShareUrls
 						reason: 'user_rejected',
 						senderDeviceId,
-						declineUrls: ['not-a-url'],
+						mapShareUrls: ['not-a-url'],
 					},
 				]
 
@@ -525,17 +515,17 @@ describe('Map Shares and Downloads', () => {
 					{
 						// Missing senderDeviceId
 						shareId: 'test-share',
-						downloadUrls: ['http://example.com/download'],
+						mapShareUrls: ['http://example.com/download'],
 						estimatedSizeBytes: 1000,
 					},
 					{
 						// Missing shareId
 						senderDeviceId,
-						downloadUrls: ['http://example.com/download'],
+						mapShareUrls: ['http://example.com/download'],
 						estimatedSizeBytes: 1000,
 					},
 					{
-						// Missing downloadUrls
+						// Missing mapShareUrls
 						senderDeviceId,
 						shareId: 'test-share',
 						estimatedSizeBytes: 1000,
@@ -544,55 +534,55 @@ describe('Map Shares and Downloads', () => {
 						// Missing estimatedSizeBytes
 						senderDeviceId,
 						shareId: 'test-share',
-						downloadUrls: ['http://example.com/download'],
+						mapShareUrls: ['http://example.com/download'],
 					},
 					{
 						// Invalid type for senderDeviceId
 						senderDeviceId: 123,
 						shareId: 'test-share',
-						downloadUrls: ['http://example.com/download'],
+						mapShareUrls: ['http://example.com/download'],
 						estimatedSizeBytes: 1000,
 					},
 					{
 						// Invalid type for shareId
 						senderDeviceId,
 						shareId: 123,
-						downloadUrls: ['http://example.com/download'],
+						mapShareUrls: ['http://example.com/download'],
 						estimatedSizeBytes: 1000,
 					},
 					{
-						// Invalid type for downloadUrls (not array)
+						// Invalid type for mapShareUrls (not array)
 						senderDeviceId,
 						shareId: 'test-share',
-						downloadUrls: 'not-an-array',
+						mapShareUrls: 'not-an-array',
 						estimatedSizeBytes: 1000,
 					},
 					{
-						// Empty downloadUrls array
+						// Empty mapShareUrls array
 						senderDeviceId,
 						shareId: 'test-share',
-						downloadUrls: [],
+						mapShareUrls: [],
 						estimatedSizeBytes: 1000,
 					},
 					{
-						// Invalid URLs in downloadUrls
+						// Invalid URLs in mapShareUrls
 						senderDeviceId,
 						shareId: 'test-share',
-						downloadUrls: ['not-a-url'],
+						mapShareUrls: ['not-a-url'],
 						estimatedSizeBytes: 1000,
 					},
 					{
 						// Invalid type for estimatedSizeBytes
 						senderDeviceId,
 						shareId: 'test-share',
-						downloadUrls: ['http://example.com/download'],
+						mapShareUrls: ['http://example.com/download'],
 						estimatedSizeBytes: 'not-a-number',
 					},
 					{
 						// Null values
 						senderDeviceId: null,
 						shareId: null,
-						downloadUrls: null,
+						mapShareUrls: null,
 						estimatedSizeBytes: null,
 					},
 				]
@@ -651,7 +641,7 @@ describe('Map Shares and Downloads', () => {
 				comparableStyle(initialReceiverStyle),
 			)
 
-			const { shareId, downloadUrls, estimatedSizeBytes } =
+			const { shareId, mapShareUrls, estimatedSizeBytes } =
 				await createShare().json()
 
 			const { downloadId } = await receiver
@@ -659,7 +649,7 @@ describe('Map Shares and Downloads', () => {
 					json: {
 						senderDeviceId,
 						shareId,
-						downloadUrls,
+						mapShareUrls,
 						estimatedSizeBytes,
 					},
 				})
@@ -711,7 +701,7 @@ describe('Map Shares and Downloads', () => {
 				comparableStyle(initialReceiverStyle),
 			)
 
-			const { shareId, downloadUrls, estimatedSizeBytes } =
+			const { shareId, mapShareUrls, estimatedSizeBytes } =
 				await createShare().json()
 
 			const { downloadId } = await receiver
@@ -719,7 +709,7 @@ describe('Map Shares and Downloads', () => {
 					json: {
 						senderDeviceId,
 						shareId,
-						downloadUrls,
+						mapShareUrls,
 						estimatedSizeBytes,
 					},
 				})
@@ -757,14 +747,14 @@ describe('Map Shares and Downloads', () => {
 		it('should not allow abort of completed download', async (t) => {
 			const { senderDeviceId, createShare, receiver, receiverLocalBaseUrl } =
 				await startServers(t)
-			const { shareId, downloadUrls, estimatedSizeBytes } =
+			const { shareId, mapShareUrls, estimatedSizeBytes } =
 				await createShare().json()
 			const { downloadId } = await receiver
 				.post(`downloads`, {
 					json: {
 						senderDeviceId,
 						shareId,
-						downloadUrls,
+						mapShareUrls,
 						estimatedSizeBytes,
 					},
 				})
@@ -783,7 +773,7 @@ describe('Map Shares and Downloads', () => {
 		})
 	})
 
-	describe.only('Map Share Cancellation Scenarios', () => {
+	describe('Map Share Cancellation Scenarios', () => {
 		it('should cancel a map share before download starts', async (t) => {
 			const {
 				createShare,
@@ -805,7 +795,7 @@ describe('Map Shares and Downloads', () => {
 					json: {
 						senderDeviceId,
 						shareId,
-						downloadUrls: share.downloadUrls,
+						mapShareUrls: share.mapShareUrls,
 						estimatedSizeBytes: share.estimatedSizeBytes,
 					},
 				})
@@ -828,7 +818,7 @@ describe('Map Shares and Downloads', () => {
 				senderDeviceId,
 				receiverLocalBaseUrl,
 			} = await startServers(t)
-			const { shareId, downloadUrls, estimatedSizeBytes } =
+			const { shareId, mapShareUrls, estimatedSizeBytes } =
 				await createShare().json()
 
 			// Start the download
@@ -837,29 +827,28 @@ describe('Map Shares and Downloads', () => {
 					json: {
 						senderDeviceId,
 						shareId,
-						downloadUrls,
+						mapShareUrls,
 						estimatedSizeBytes,
 					},
 				})
 				.json<any>()
+			expect(downloadId).toBeDefined()
 
 			const es = createEventSource(
 				`${receiverLocalBaseUrl}/downloads/${downloadId}/events`,
 			)
 			// Wait for download to start
 			await eventsUntil(es, (msg) => JSON.parse(msg.data).bytesDownloaded > 0)
-			console.log('HERE')
 
+			// Cancel the share
 			await sender.post(`mapShares/${shareId}/cancel`)
 
-			for await (const msg of es) {
-				console.log('MSG', msg.data)
-			}
+			await eventsUntil(es, 'canceled')
 			es.close()
 
 			const download = await receiver.get(`downloads/${downloadId}`).json()
 			expect(download).toHaveProperty('status', 'canceled')
-		}, 2000)
+		})
 
 		it('should cancel a download during active transfer', async () => {
 			// Create a share
@@ -872,14 +861,14 @@ describe('Map Shares and Downloads', () => {
 			const { shareId } = shareData
 
 			// Start the download
-			const testDownloadUrls = [
+			const testmapShareUrls = [
 				`http://127.0.0.1:${senderRemotePort}/mapShares/${shareId}/download`,
 			]
 			const createDownloadResponse = await postJson(
 				`${receiverBaseUrl}/downloads`,
 				{
 					senderDeviceId,
-					downloadUrls: testDownloadUrls,
+					mapShareUrls: testmapShareUrls,
 					shareId,
 					estimatedSizeBytes: shareData.estimatedSizeBytes,
 				},
@@ -950,14 +939,14 @@ describe('Map Shares and Downloads', () => {
 			const { shareId } = shareData
 
 			// Create a download
-			const testDownloadUrls = [
+			const testmapShareUrls = [
 				`http://127.0.0.1:${senderRemotePort}/mapShares/${shareId}/download`,
 			]
 			const createDownloadResponse = await postJson(
 				`${receiverBaseUrl}/downloads`,
 				{
 					senderDeviceId,
-					downloadUrls: testDownloadUrls,
+					mapShareUrls: testmapShareUrls,
 					shareId,
 					estimatedSizeBytes: shareData.estimatedSizeBytes,
 				},
@@ -1023,14 +1012,14 @@ describe('Map Shares and Downloads', () => {
 			const { shareId } = shareData
 
 			// Start a download
-			const testDownloadUrls = [
+			const testmapShareUrls = [
 				`http://127.0.0.1:${senderRemotePort}/mapShares/${shareId}/download`,
 			]
 			const createDownloadResponse = await postJson(
 				`${receiverBaseUrl}/downloads`,
 				{
 					senderDeviceId,
-					downloadUrls: testDownloadUrls,
+					mapShareUrls: testmapShareUrls,
 					shareId,
 					estimatedSizeBytes: shareData.estimatedSizeBytes,
 				},
@@ -1083,14 +1072,14 @@ describe('Map Shares and Downloads', () => {
 			const { shareId } = shareData
 
 			// Start a download
-			const testDownloadUrls = [
+			const testmapShareUrls = [
 				`http://127.0.0.1:${senderRemotePort}/mapShares/${shareId}/download`,
 			]
 			const createDownloadResponse = await postJson(
 				`${receiverBaseUrl}/downloads`,
 				{
 					senderDeviceId,
-					downloadUrls: testDownloadUrls,
+					mapShareUrls: testmapShareUrls,
 					shareId,
 					estimatedSizeBytes: shareData.estimatedSizeBytes,
 				},
@@ -1129,14 +1118,14 @@ describe('Map Shares and Downloads', () => {
 			const { shareId } = shareData
 
 			// Start a download
-			const testDownloadUrls = [
+			const testmapShareUrls = [
 				`http://127.0.0.1:${senderRemotePort}/mapShares/${shareId}/download`,
 			]
 			const createDownloadResponse = await postJson(
 				`${receiverBaseUrl}/downloads`,
 				{
 					senderDeviceId,
-					downloadUrls: testDownloadUrls,
+					mapShareUrls: testmapShareUrls,
 					shareId,
 					estimatedSizeBytes: shareData.estimatedSizeBytes,
 				},
@@ -1212,7 +1201,7 @@ describe('Map Shares and Downloads', () => {
 				}),
 			})
 			const shareData = await createShareResponse.json()
-			const { shareId, downloadUrls, estimatedSizeBytes } = shareData
+			const { shareId, mapShareUrls, estimatedSizeBytes } = shareData
 
 			// Try to download with receiver's credentials (wrong device)
 			const downloadUrl = `http://127.0.0.1:${senderRemotePort}/mapShares/${shareId}/download`
@@ -1239,7 +1228,7 @@ describe('Map Shares and Downloads', () => {
 				}),
 			})
 			const shareData = await createShareResponse.json()
-			const { shareId, downloadUrls } = shareData
+			const { shareId, mapShareUrls } = shareData
 
 			// Access with correct credentials (receiver's device)
 			const shareInfoUrl = `http://127.0.0.1:${senderRemotePort}/mapShares/${shareId}`
@@ -1272,7 +1261,7 @@ describe('Map Shares and Downloads', () => {
 				}),
 			})
 			const shareData = await createShareResponse.json()
-			const { shareId, downloadUrls } = shareData
+			const { shareId, mapShareUrls } = shareData
 
 			// Try to decline with receiver's credentials (wrong device)
 			const declineUrl = `http://127.0.0.1:${senderRemotePort}/mapShares/${shareId}/decline`
@@ -1428,14 +1417,14 @@ describe('Map Shares and Downloads', () => {
 			const { shareId } = shareData
 
 			// Complete a download
-			const testDownloadUrls = [
+			const testmapShareUrls = [
 				`http://127.0.0.1:${senderRemotePort}/mapShares/${shareId}/download`,
 			]
 			const createDownloadResponse = await postJson(
 				`${receiverBaseUrl}/downloads`,
 				{
 					senderDeviceId,
-					downloadUrls: testDownloadUrls,
+					mapShareUrls: testmapShareUrls,
 					shareId,
 					estimatedSizeBytes: shareData.estimatedSizeBytes,
 				},
@@ -1556,7 +1545,7 @@ describe('Map Shares and Downloads', () => {
 				{
 					senderDeviceId,
 					shareId,
-					downloadUrls: ['http://127.0.0.1:1/download'],
+					mapShareUrls: ['http://127.0.0.1:1/download'],
 					estimatedSizeBytes: 1000,
 				},
 			)
@@ -1589,7 +1578,7 @@ describe('Map Shares and Downloads', () => {
 				{
 					senderDeviceId,
 					shareId,
-					downloadUrls: ['http://127.0.0.1:1/download'],
+					mapShareUrls: ['http://127.0.0.1:1/download'],
 					estimatedSizeBytes: 1000,
 				},
 			)
@@ -1618,14 +1607,14 @@ describe('Map Shares and Downloads', () => {
 			const { shareId } = shareData
 
 			// Start a download
-			const testDownloadUrls = [
+			const testmapShareUrls = [
 				`http://127.0.0.1:${senderRemotePort}/mapShares/${shareId}/download`,
 			]
 			const createDownloadResponse = await postJson(
 				`${receiverBaseUrl}/downloads`,
 				{
 					senderDeviceId,
-					downloadUrls: testDownloadUrls,
+					mapShareUrls: testmapShareUrls,
 					shareId,
 					estimatedSizeBytes: shareData.estimatedSizeBytes,
 				},
@@ -1747,7 +1736,7 @@ describe('Map Shares and Downloads', () => {
 				{
 					senderDeviceId,
 					shareId,
-					downloadUrls: [
+					mapShareUrls: [
 						'http://127.0.0.1:1/download',
 						'http://127.0.0.1:2/download',
 						'http://127.0.0.1:3/download',
@@ -1779,14 +1768,14 @@ describe('Map Shares and Downloads', () => {
 			const { shareId } = shareData
 
 			// Start download
-			const testDownloadUrls = [
+			const testmapShareUrls = [
 				`http://127.0.0.1:${senderRemotePort}/mapShares/${shareId}/download`,
 			]
 			const createDownloadResponse = await postJson(
 				`${receiverBaseUrl}/downloads`,
 				{
 					senderDeviceId,
-					downloadUrls: testDownloadUrls,
+					mapShareUrls: testmapShareUrls,
 					shareId,
 					estimatedSizeBytes: shareData.estimatedSizeBytes,
 				},

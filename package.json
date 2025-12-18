@@ -13,7 +13,8 @@
 		"format": "prettier --write .",
 		"lint": "eslint",
 		"prepare": "husky",
-		"prepack": "tsc -p tsconfig.npm.json"
+		"prepack": "tsc -p tsconfig.npm.json",
+		"postinstall": "patch-package"
 	},
 	"keywords": [],
 	"author": "",

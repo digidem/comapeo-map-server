@@ -23,7 +23,7 @@ import { addTrailingSlash, timingSafeEqual } from '../lib/utils.js'
 import { localhostOnly } from '../middlewares/localhost-only.js'
 import { parseRequest } from '../middlewares/parse-request.js'
 import {
-	DeclineUrls,
+	MapShareUrls,
 	MapShareDeclineReason,
 	MapShareState,
 	type FetchContext,
@@ -37,7 +37,7 @@ const MapShareCreateRequest = T.Object({
 
 const LocalMapShareDeclineRequest = T.Object({
 	reason: MapShareDeclineReason,
-	declineUrls: DeclineUrls,
+	mapShareUrls: MapShareUrls,
 	senderDeviceId: T.String({
 		minLength: 1,
 		description: 'The ID of the device that is sending the map share',
@@ -134,9 +134,7 @@ export function MapSharesRouter(
 	})
 
 	router.get('/:shareId/download', async (request): Promise<Response> => {
-		console.log('Download requested for map share', request.params.shareId)
 		const mapShare = getMapShare(request.params.shareId)
-		console.log('Starting download for map share', mapShare.shareId)
 		const stream = ctx.createMapReadableStream(mapShare.state.mapId)
 		return mapShare.downloadResponse(stream)
 	})
@@ -153,14 +151,15 @@ export function MapSharesRouter(
 			if (err instanceof StatusError) throw err
 			throw new StatusError(400, 'Invalid Request')
 		}
-		const { senderDeviceId, declineUrls, reason } = parsedBody
+		const { senderDeviceId, mapShareUrls, reason } = parsedBody
 		const remotePublicKey = z32.decode(senderDeviceId)
 		const keyPair = ctx.getKeyPair()
 		let response: Response | undefined
 		// The sharer could have multiple IPs for different network interfaces, and
 		// not all of them may be on the same network as us, so try each URL until
 		// one works
-		for (const url of declineUrls) {
+		for (const mapShareUrl of mapShareUrls) {
+			const url = new URL('decline', addTrailingSlash(mapShareUrl))
 			try {
 				response = (await secretStreamFetch(url, {
 					method: 'POST',
