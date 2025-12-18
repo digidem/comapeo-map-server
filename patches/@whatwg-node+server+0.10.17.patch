@@ -1,8 +1,16 @@
 diff --git a/node_modules/@whatwg-node/server/esm/utils.js b/node_modules/@whatwg-node/server/esm/utils.js
-index 237a6e1..a8d56f3 100644
+index 237a6e1..efe2cf0 100644
 --- a/node_modules/@whatwg-node/server/esm/utils.js
 +++ b/node_modules/@whatwg-node/server/esm/utils.js
-@@ -303,7 +303,18 @@ function sendReadableStream(nodeRequest, serverResponse, readableStream) {
+@@ -296,14 +296,25 @@ export function sendNodeResponse(fetchResponse, serverResponse, nodeRequest, __u
+ function sendReadableStream(nodeRequest, serverResponse, readableStream) {
+     const reader = readableStream.getReader();
+     nodeRequest?.once?.('error', err => {
+-        reader.cancel(err);
++        reader.cancel(err).catch(() => {});
+     });
+     function pump() {
+         return reader
              .read()
              .then(({ done, value }) => done
              ? endResponse(serverResponse)

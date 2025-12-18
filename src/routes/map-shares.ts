@@ -175,7 +175,7 @@ export function MapSharesRouter(
 				// Otherwise, try the next URL
 			}
 		}
-		if (!response || !response.body) {
+		if (!response) {
 			throw new errors.DECLINE_CANNOT_CONNECT()
 		}
 		if (!response.ok) {
