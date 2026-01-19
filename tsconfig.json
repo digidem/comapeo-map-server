@@ -9,7 +9,9 @@
 		"noImplicitOverride": true,
 		"forceConsistentCasingInFileNames": true,
 
-		"skipLibCheck": true
+		"skipLibCheck": true,
+
+		"typeRoots": ["./types", "./node_modules/@types"]
 	},
 	"include": ["**/*"],
 	"exclude": ["node_modules", "dist"]

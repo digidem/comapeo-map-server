@@ -1,5 +1,44 @@
+diff --git a/node_modules/@whatwg-node/server/cjs/createServerAdapter.js b/node_modules/@whatwg-node/server/cjs/createServerAdapter.js
+index e24db6e..980d0d8 100644
+--- a/node_modules/@whatwg-node/server/cjs/createServerAdapter.js
++++ b/node_modules/@whatwg-node/server/cjs/createServerAdapter.js
+@@ -4,7 +4,6 @@ exports.createServerAdapter = createServerAdapter;
+ const tslib_1 = require("tslib");
+ const instrumentation_1 = require("@envelop/instrumentation");
+ const disposablestack_1 = require("@whatwg-node/disposablestack");
+-const DefaultFetchAPI = tslib_1.__importStar(require("@whatwg-node/fetch"));
+ const promise_helpers_1 = require("@whatwg-node/promise-helpers");
+ const utils_js_1 = require("./utils.js");
+ const uwebsockets_js_1 = require("./uwebsockets.js");
+@@ -21,7 +20,6 @@ const EMPTY_OBJECT = {};
+ function createServerAdapter(serverAdapterBaseObject, options) {
+     const useSingleWriteHead = options?.__useSingleWriteHead == null ? true : options.__useSingleWriteHead;
+     const fetchAPI = {
+-        ...DefaultFetchAPI,
+         ...options?.fetchAPI,
+     };
+     const useCustomAbortCtrl = options?.__useCustomAbortCtrl == null
+diff --git a/node_modules/@whatwg-node/server/esm/createServerAdapter.js b/node_modules/@whatwg-node/server/esm/createServerAdapter.js
+index 941f115..0815d9a 100644
+--- a/node_modules/@whatwg-node/server/esm/createServerAdapter.js
++++ b/node_modules/@whatwg-node/server/esm/createServerAdapter.js
+@@ -1,6 +1,5 @@
+ import { chain, getInstrumented } from '@envelop/instrumentation';
+ import { AsyncDisposableStack, DisposableSymbols } from '@whatwg-node/disposablestack';
+-import * as DefaultFetchAPI from '@whatwg-node/fetch';
+ import { handleMaybePromise, unfakePromise } from '@whatwg-node/promise-helpers';
+ import { completeAssign, createCustomAbortControllerSignal, ensureDisposableStackRegisteredForTerminateEvents, handleAbortSignalAndPromiseResponse, handleErrorFromRequestHandler, isFetchEvent, isNodeRequest, isolateObject, isPromise, isRequestInit, isServerResponse, iterateAsyncVoid, normalizeNodeRequest, sendNodeResponse, } from './utils.js';
+ import { fakePromise, getRequestFromUWSRequest, isUWSResponse, sendResponseToUwsOpts, } from './uwebsockets.js';
+@@ -17,7 +16,6 @@ const EMPTY_OBJECT = {};
+ function createServerAdapter(serverAdapterBaseObject, options) {
+     const useSingleWriteHead = options?.__useSingleWriteHead == null ? true : options.__useSingleWriteHead;
+     const fetchAPI = {
+-        ...DefaultFetchAPI,
+         ...options?.fetchAPI,
+     };
+     const useCustomAbortCtrl = options?.__useCustomAbortCtrl == null
 diff --git a/node_modules/@whatwg-node/server/esm/utils.js b/node_modules/@whatwg-node/server/esm/utils.js
-index 237a6e1..efe2cf0 100644
+index 237a6e1..5cbe472 100644
 --- a/node_modules/@whatwg-node/server/esm/utils.js
 +++ b/node_modules/@whatwg-node/server/esm/utils.js
 @@ -296,14 +296,25 @@ export function sendNodeResponse(fetchResponse, serverResponse, nodeRequest, __u

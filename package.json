@@ -12,6 +12,7 @@
 		"test": "vitest run",
 		"format": "prettier --write .",
 		"lint": "eslint",
+		"types": "tsc --noEmit",
 		"prepare": "husky",
 		"prepack": "tsc -p tsconfig.npm.json",
 		"postinstall": "patch-package"
@@ -32,6 +33,7 @@
 		"husky": "^9.1.7",
 		"lint-staged": "^16.2.7",
 		"msw": "^2.12.4",
+		"patch-package": "^8.0.1",
 		"prettier": "^3.7.4",
 		"type-fest": "^5.3.1",
 		"typescript": "^5.9.3",
@@ -64,5 +66,12 @@
 		"typebox": "^1.0.61",
 		"typed-event-target": "^3.4.0",
 		"z32": "^1.1.0"
-	}
+	},
+	"bundledDependencies": [
+		"@whatwg-node/server"
+	],
+	"files": [
+		"src/",
+		"dist/"
+	]
 }
