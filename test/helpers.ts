@@ -56,8 +56,9 @@ export async function startServer(
 	options?: Partial<ServerOptions>,
 ) {
 	const onTestFinished = 'onTestFinished' in t ? t.onTestFinished.bind(t) : t
+	const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'map-server-test-'))
 	const tmpCustomMapPath = path.join(
-		os.tmpdir(),
+		tmpDir,
 		`custom-map-path-${tmpCounter++}.smp`,
 	)
 	// Copy the fixture to a temp location to avoid mutations during tests
@@ -79,8 +80,9 @@ export async function startServer(
 		keyPair,
 	})
 	onTestFinished(async () => {
-		// Clean up the temp custom map file
+		// Clean up the temp dir and close the server
 		await fs.unlink(tmpCustomMapPath).catch(noop)
+		await fs.rm(tmpDir, { recursive: true, force: true }).catch(noop)
 		await server.close()
 	})
 	const { localPort, remotePort } = await server.listen()
@@ -159,7 +161,10 @@ export async function startServers(
 		})
 
 	const createDownload = (
-		share: Pick<MapShareState, 'shareId' | 'mapShareUrls' | 'estimatedSizeBytes'>,
+		share: Pick<
+			MapShareState,
+			'shareId' | 'mapShareUrls' | 'estimatedSizeBytes'
+		>,
 	) =>
 		receiverKy.post('downloads', {
 			json: {
