@@ -14,7 +14,30 @@ import z32 from 'z32'
 import type { ServerOptions } from '../src/index.js'
 import { createServer } from '../src/index.js'
 import { noop } from '../src/lib/utils.js'
-import { MapShareState } from '../src/types.js'
+import type { MapShareState } from '../src/types.js'
+
+export type ServerInstance = {
+	/** ky instance for making HTTP requests */
+	get: (typeof ky)['get']
+	post: (typeof ky)['post']
+	put: (typeof ky)['put']
+	delete: (typeof ky)['delete']
+	localBaseUrl: string
+	remoteBaseUrl: string
+	keyPair: ReturnType<typeof SecretStreamAgent.keyPair>
+	deviceId: string
+	/** Returns the path to the events endpoint for a given share/download ID */
+	eventsPath: (id: string) => string
+}
+
+export type SenderInstance = ServerInstance & {
+	remotePort: number
+}
+
+export type ReceiverInstance = ServerInstance & {
+	localPort: number
+	customMapPath: string
+}
 
 export const OSM_BRIGHT_Z6 = new URL(
 	'./fixtures/osm-bright-z6.smp',
@@ -96,41 +119,49 @@ export async function startServers(
 			keyPair: receiverKeyPair,
 		}),
 	])
-	const onTestFinished = 'onTestFinished' in t ? t.onTestFinished.bind(t) : t
-	const receiverDeviceId = z32.encode(receiver.keyPair.publicKey)
-	const senderDeviceId = z32.encode(sender.keyPair.publicKey)
 	const kyDefaults = ky.create({ retry: 0, throwHttpErrors: false })
-	const senderLocal = kyDefaults.extend({ prefixUrl: sender.localBaseUrl })
-	const receiverLocal = kyDefaults.extend({ prefixUrl: receiver.localBaseUrl })
-	const senderRemote = kyDefaults.extend({ prefixUrl: sender.remoteBaseUrl })
-	const receiverRemote = kyDefaults.extend({
-		prefixUrl: receiver.remoteBaseUrl,
-	})
+	const senderKy = kyDefaults.extend({ prefixUrl: sender.localBaseUrl })
+	const receiverKy = kyDefaults.extend({ prefixUrl: receiver.localBaseUrl })
+
+	const senderInstance: SenderInstance = {
+		get: senderKy.get.bind(senderKy),
+		post: senderKy.post.bind(senderKy),
+		put: senderKy.put.bind(senderKy),
+		delete: senderKy.delete.bind(senderKy),
+		localBaseUrl: sender.localBaseUrl,
+		remoteBaseUrl: sender.remoteBaseUrl,
+		remotePort: sender.remotePort,
+		keyPair: senderKeyPair,
+		deviceId: z32.encode(senderKeyPair.publicKey),
+		eventsPath: (id: string) => `/mapShares/${id}/events`,
+	}
+
+	const receiverInstance: ReceiverInstance = {
+		get: receiverKy.get.bind(receiverKy),
+		post: receiverKy.post.bind(receiverKy),
+		put: receiverKy.put.bind(receiverKy),
+		delete: receiverKy.delete.bind(receiverKy),
+		localBaseUrl: receiver.localBaseUrl,
+		remoteBaseUrl: receiver.remoteBaseUrl,
+		localPort: receiver.localPort,
+		keyPair: receiverKeyPair,
+		deviceId: z32.encode(receiverKeyPair.publicKey),
+		customMapPath: receiver.customMapPath,
+		eventsPath: (id: string) => `/downloads/${id}/events`,
+	}
+
 	const createShare = () =>
-		senderLocal.post<MapShareState>('mapShares', {
+		senderKy.post<MapShareState>('mapShares', {
 			json: {
 				mapId: 'custom',
-				receiverDeviceId: z32.encode(receiver.keyPair.publicKey),
+				receiverDeviceId: receiverInstance.deviceId,
 			},
 		})
 
 	return {
-		sender: senderLocal,
-		receiver: receiverLocal,
+		sender: senderInstance,
+		receiver: receiverInstance,
 		createShare,
-		senderRemote,
-		receiverRemote,
-		senderLocalBaseUrl: sender.localBaseUrl,
-		senderRemotePort: sender.remotePort,
-		senderKeyPair,
-		senderDeviceId,
-		senderRemoteBaseUrl: sender.remoteBaseUrl,
-		receiverLocalBaseUrl: receiver.localBaseUrl,
-		receiverLocalPort: receiver.localPort,
-		receiverKeyPair,
-		receiverDeviceId,
-		receiverRemoteBaseUrl: receiver.remoteBaseUrl,
-		receiverCustomMapPath: receiver.customMapPath,
 	}
 }
 
