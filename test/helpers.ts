@@ -158,10 +158,23 @@ export async function startServers(
 			},
 		})
 
+	const createDownload = (
+		share: Pick<MapShareState, 'shareId' | 'mapShareUrls' | 'estimatedSizeBytes'>,
+	) =>
+		receiverKy.post('downloads', {
+			json: {
+				senderDeviceId: senderInstance.deviceId,
+				shareId: share.shareId,
+				mapShareUrls: share.mapShareUrls,
+				estimatedSizeBytes: share.estimatedSizeBytes,
+			},
+		})
+
 	return {
 		sender: senderInstance,
 		receiver: receiverInstance,
 		createShare,
+		createDownload,
 	}
 }
 

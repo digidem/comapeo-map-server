@@ -114,10 +114,11 @@ describe('Map Shares and Downloads', () => {
 
 	describe('Downloads (Receiver)', () => {
 		it('can download map share and get events on sender and receiver', async (t) => {
-			const { sender, receiver, createShare } = await startServers(t, {
-				senderOptions: { customMapPath: OSM_BRIGHT_Z6 },
-				receiverOptions: { customMapPath: DEMOTILES_Z2 },
-			})
+			const { sender, receiver, createShare, createDownload } =
+				await startServers(t, {
+					senderOptions: { customMapPath: OSM_BRIGHT_Z6 },
+					receiverOptions: { customMapPath: DEMOTILES_Z2 },
+				})
 
 			const initialSenderStyle = await sender
 				.get(`maps/custom/style.json`)
@@ -129,18 +130,10 @@ describe('Map Shares and Downloads', () => {
 				comparableStyle(initialReceiverStyle),
 			)
 
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
+			const share = await createShare().json()
 
 			// Now create a download on the receiver using the real share
-			const response = await receiver.post(`downloads`, {
-				json: {
-					senderDeviceId: sender.deviceId,
-					shareId,
-					mapShareUrls,
-					estimatedSizeBytes,
-				},
-			})
+			const response = await createDownload(share)
 			expect(response.status).toBe(201)
 
 			const download = await response.json<any>()
@@ -156,16 +149,16 @@ describe('Map Shares and Downloads', () => {
 
 			const [receiverEvents, senderEvents] = await Promise.all([
 				eventsUntil(receiver, download.downloadId, 'completed'),
-				eventsUntil(sender, shareId, 'completed'),
+				eventsUntil(sender, share.shareId, 'completed'),
 			])
 
 			expect(receiverEvents.at(-2)).toHaveProperty(
 				'bytesDownloaded',
-				estimatedSizeBytes,
+				share.estimatedSizeBytes,
 			)
 			expect(senderEvents.at(-2)).toHaveProperty(
 				'bytesDownloaded',
-				estimatedSizeBytes,
+				share.estimatedSizeBytes,
 			)
 			expect(receiverEvents.length).toBeGreaterThan(3) // At least some progress events
 			const finalReceiverStyle = await receiver
@@ -178,21 +171,11 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('should list all downloads', async (t) => {
-			const { sender, createShare, receiver } = await startServers(t)
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
+			const { receiver, createShare, createDownload } = await startServers(t)
+			const share = await createShare().json()
 
 			// Now create a download on the receiver using the real share
-			const download = await receiver
-				.post(`downloads`, {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const download = await createDownload(share).json<any>()
 			const downloads = await receiver.get(`downloads`).json()
 			expect(downloads).toEqual([download])
 			// Wait for download to complete to clean up background connections
@@ -200,20 +183,10 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('should get a specific download', async (t) => {
-			const { sender, createShare, receiver } = await startServers(t)
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
+			const { receiver, createShare, createDownload } = await startServers(t)
+			const share = await createShare().json()
 
-			const download = await receiver
-				.post(`downloads`, {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const download = await createDownload(share).json<any>()
 			const downloadDetails = await receiver
 				.get(`downloads/${download.downloadId}`)
 				.json()
@@ -311,18 +284,9 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('should reject downloads GET routes from non-localhost', async (t) => {
-			const { sender, receiver, createShare } = await startServers(t)
-			const { shareId, mapShareUrls } = await createShare().json()
-			const { downloadId } = await receiver
-				.post(`downloads`, {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes: 1000,
-					},
-				})
-				.json<any>()
+			const { receiver, createShare, createDownload } = await startServers(t)
+			const share = await createShare().json()
+			const { downloadId } = await createDownload(share).json<any>()
 
 			const responsePromises = []
 			for (const route of [
@@ -343,18 +307,9 @@ describe('Map Shares and Downloads', () => {
 			await receiver.post(`downloads/${downloadId}/abort`)
 		})
 		it('should reject canceling download from non-localhost', async (t) => {
-			const { sender, receiver, createShare } = await startServers(t)
-			const { shareId, mapShareUrls } = await createShare().json()
-			const { downloadId } = await receiver
-				.post(`downloads`, {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes: 1000,
-					},
-				})
-				.json<any>()
+			const { receiver, createShare, createDownload } = await startServers(t)
+			const share = await createShare().json()
+			const { downloadId } = await createDownload(share).json<any>()
 			const response = await secretStreamFetch(
 				`${receiver.remoteBaseUrl}/downloads/${downloadId}/cancel`,
 				{
@@ -609,10 +564,11 @@ describe('Map Shares and Downloads', () => {
 
 	describe('Download abort scenarios', () => {
 		it('should abort a download immediately', async (t) => {
-			const { createShare, receiver, sender } = await startServers(t, {
-				senderOptions: { customMapPath: OSM_BRIGHT_Z6 },
-				receiverOptions: { customMapPath: DEMOTILES_Z2 },
-			})
+			const { createShare, createDownload, receiver, sender } =
+				await startServers(t, {
+					senderOptions: { customMapPath: OSM_BRIGHT_Z6 },
+					receiverOptions: { customMapPath: DEMOTILES_Z2 },
+				})
 
 			const initialSenderStyle = await sender
 				.get(`maps/custom/style.json`)
@@ -624,19 +580,8 @@ describe('Map Shares and Downloads', () => {
 				comparableStyle(initialReceiverStyle),
 			)
 
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
-
-			const { downloadId } = await receiver
-				.post(`downloads`, {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const share = await createShare().json()
+			const { downloadId } = await createDownload(share).json<any>()
 
 			// Abort the download immediately
 			const cancelResponse = await receiver.post(
@@ -646,7 +591,7 @@ describe('Map Shares and Downloads', () => {
 
 			await delay(10) // Wait a bit for cancellation to propagate
 
-			const mapShare = await sender.get(`mapShares/${shareId}`).json()
+			const mapShare = await sender.get(`mapShares/${share.shareId}`).json()
 			expect(mapShare).toHaveProperty('status', 'aborted')
 
 			const download = await receiver.get(`downloads/${downloadId}`).json()
@@ -663,10 +608,11 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('should abort a download after some progress', async (t) => {
-			const { createShare, receiver, sender } = await startServers(t, {
-				senderOptions: { customMapPath: OSM_BRIGHT_Z6 },
-				receiverOptions: { customMapPath: DEMOTILES_Z2 },
-			})
+			const { createShare, createDownload, receiver, sender } =
+				await startServers(t, {
+					senderOptions: { customMapPath: OSM_BRIGHT_Z6 },
+					receiverOptions: { customMapPath: DEMOTILES_Z2 },
+				})
 
 			const initialSenderStyle = await sender
 				.get(`maps/custom/style.json`)
@@ -678,19 +624,8 @@ describe('Map Shares and Downloads', () => {
 				comparableStyle(initialReceiverStyle),
 			)
 
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
-
-			const { downloadId } = await receiver
-				.post(`downloads`, {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const share = await createShare().json()
+			const { downloadId } = await createDownload(share).json<any>()
 
 			await eventsUntil(
 				receiver,
@@ -705,7 +640,7 @@ describe('Map Shares and Downloads', () => {
 
 			await delay(10) // Wait a bit for cancellation to propagate
 
-			const mapShare = await sender.get(`mapShares/${shareId}`).json()
+			const mapShare = await sender.get(`mapShares/${share.shareId}`).json()
 			expect(mapShare).toHaveProperty('status', 'aborted')
 
 			const download = await receiver.get(`downloads/${downloadId}`).json()
@@ -722,19 +657,9 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('should not allow abort of completed download', async (t) => {
-			const { sender, createShare, receiver } = await startServers(t)
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
-			const { downloadId } = await receiver
-				.post(`downloads`, {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const { createShare, createDownload, receiver } = await startServers(t)
+			const share = await createShare().json()
+			const { downloadId } = await createDownload(share).json<any>()
 			// Wait for download to complete
 			await eventsUntil(receiver, downloadId, 'completed')
 			// Attempt to abort
@@ -747,25 +672,19 @@ describe('Map Shares and Downloads', () => {
 
 	describe('Map Share Cancellation Scenarios', () => {
 		it('sender can cancel a map share before download starts', async (t) => {
-			const { createShare, sender, receiver } = await startServers(t)
-			const { shareId } = await createShare().json()
+			const { createShare, createDownload, sender, receiver } =
+				await startServers(t)
+			const share = await createShare().json()
 
 			// Cancel the share
-			await sender.post(`mapShares/${shareId}/cancel`)
-			const share = await sender.get(`mapShares/${shareId}`).json<any>()
-			expect(share.status).toBe('canceled')
+			await sender.post(`mapShares/${share.shareId}/cancel`)
+			const canceledShare = await sender
+				.get(`mapShares/${share.shareId}`)
+				.json<any>()
+			expect(canceledShare.status).toBe('canceled')
 
 			// Attempt to start download
-			const { downloadId } = await receiver
-				.post(`downloads`, {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls: share.mapShareUrls,
-						estimatedSizeBytes: share.estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const { downloadId } = await createDownload(share).json<any>()
 			await delay(10) // Wait a bit for cancellation to propagate
 
 			const download = await receiver.get(`downloads/${downloadId}`).json()
@@ -773,21 +692,12 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('sender can cancel a map share after download starts', async (t) => {
-			const { createShare, sender, receiver } = await startServers(t)
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
+			const { createShare, createDownload, sender, receiver } =
+				await startServers(t)
+			const share = await createShare().json()
 
 			// Start the download
-			const { downloadId } = await receiver
-				.post(`downloads`, {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const { downloadId } = await createDownload(share).json<any>()
 			expect(downloadId).toBeDefined()
 
 			const es = createEventSource(
@@ -798,7 +708,7 @@ describe('Map Shares and Downloads', () => {
 
 			const canceledPromise = eventsUntilEs(es, 'canceled')
 			// Cancel the share
-			await sender.post(`mapShares/${shareId}/cancel`)
+			await sender.post(`mapShares/${share.shareId}/cancel`)
 			// Wait for canceled event
 			await canceledPromise
 			es.close()
@@ -808,21 +718,11 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('receiver can abort a download after download starts', async (t) => {
-			const { createShare, sender, receiver } = await startServers(t)
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
+			const { createShare, createDownload, receiver } = await startServers(t)
+			const share = await createShare().json()
 
 			// Start the download
-			const { downloadId } = await receiver
-				.post(`downloads`, {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const { downloadId } = await createDownload(share).json<any>()
 			expect(downloadId).toBeDefined()
 
 			await eventsUntil(
@@ -838,25 +738,16 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('should stream download and abort updates via SSE for shares', async (t) => {
-			const { createShare, sender, receiver } = await startServers(t)
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
+			const { createShare, createDownload, sender, receiver } =
+				await startServers(t)
+			const share = await createShare().json()
 
 			const serverEs = createEventSource(
-				`${sender.localBaseUrl}${sender.eventsPath(shareId)}`,
+				`${sender.localBaseUrl}${sender.eventsPath(share.shareId)}`,
 			)
 			const eventsPromise = eventsUntilEs(serverEs, 'aborted')
 			// Start the download
-			const { downloadId } = await receiver
-				.post(`downloads`, {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const { downloadId } = await createDownload(share).json<any>()
 			expect(downloadId).toBeDefined()
 
 			// Wait for download to start
@@ -877,7 +768,7 @@ describe('Map Shares and Downloads', () => {
 
 			// First message should be initial state (pending)
 			expect(events[0]).toHaveProperty('status', 'pending')
-			expect(events[0]).toHaveProperty('shareId', shareId)
+			expect(events[0]).toHaveProperty('shareId', share.shareId)
 
 			// At least one progress message
 			expect(
@@ -889,21 +780,12 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('should stream download and cancellation updates via SSE for downloads', async (t) => {
-			const { createShare, sender, receiver } = await startServers(t)
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
+			const { createShare, createDownload, sender, receiver } =
+				await startServers(t)
+			const share = await createShare().json()
 
 			// Start the download
-			const { downloadId } = await receiver
-				.post(`downloads`, {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const { downloadId } = await createDownload(share).json<any>()
 			expect(downloadId).toBeDefined()
 			const receiverEs = createEventSource(
 				`${receiver.localBaseUrl}${receiver.eventsPath(downloadId)}`,
@@ -917,13 +799,13 @@ describe('Map Shares and Downloads', () => {
 			)
 
 			// Cancel the share
-			await sender.post(`mapShares/${shareId}/cancel`)
+			await sender.post(`mapShares/${share.shareId}/cancel`)
 
 			const events = await eventsPromise
 			receiverEs.close()
 
 			// First message should have shareId
-			expect(events[0]).toHaveProperty('shareId', shareId)
+			expect(events[0]).toHaveProperty('shareId', share.shareId)
 
 			// At least one progress message
 			expect(
@@ -935,27 +817,17 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('should not corrupt existing custom map when download is aborted by receiver', async (t) => {
-			const { createShare, sender, receiver } = await startServers(t)
+			const { createShare, createDownload, receiver } = await startServers(t)
 
 			// Get original map info
 			const originalMapInfo = await receiver.get('maps/custom/info').json<any>()
 			expect(originalMapInfo.size).toBeGreaterThan(0)
 
 			// Create a share from sender
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
+			const share = await createShare().json()
 
 			// Start the download
-			const { downloadId } = await receiver
-				.post('downloads', {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const { downloadId } = await createDownload(share).json<any>()
 			expect(downloadId).toBeDefined()
 
 			const es = createEventSource(
@@ -983,27 +855,18 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('should not corrupt existing custom map when download is canceled by sender', async (t) => {
-			const { createShare, sender, receiver } = await startServers(t)
+			const { createShare, createDownload, sender, receiver } =
+				await startServers(t)
 
 			// Get original map info
 			const originalMapInfo = await receiver.get('maps/custom/info').json<any>()
 			expect(originalMapInfo.size).toBeGreaterThan(0)
 
 			// Create a share from sender
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
+			const share = await createShare().json()
 
 			// Start the download
-			const { downloadId } = await receiver
-				.post('downloads', {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const { downloadId } = await createDownload(share).json<any>()
 			expect(downloadId).toBeDefined()
 
 			const es = createEventSource(
@@ -1017,7 +880,7 @@ describe('Map Shares and Downloads', () => {
 
 			const canceledPromise = eventsUntilEs(es, 'canceled')
 			// Cancel the share from sender side
-			await sender.post(`mapShares/${shareId}/cancel`)
+			await sender.post(`mapShares/${share.shareId}/cancel`)
 			// Wait for canceled event
 			await canceledPromise
 			es.close()
@@ -1031,23 +894,12 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('should not leave temp files when download fails', async (t) => {
-			const { sender, createShare, receiver } = await startServers(t)
+			const { createShare, createDownload, receiver } = await startServers(t)
 			const receiverDir = path.dirname(receiver.customMapPath)
 			const receiverBasename = path.basename(receiver.customMapPath)
 
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
-
-			const { downloadId } = await receiver
-				.post(`downloads`, {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const share = await createShare().json()
+			const { downloadId } = await createDownload(share).json<any>()
 
 			const es = createEventSource(
 				`${receiver.localBaseUrl}${receiver.eventsPath(downloadId)}`,
@@ -1205,22 +1057,12 @@ describe('Map Shares and Downloads', () => {
 
 	describe('Edge Cases and State Transitions', () => {
 		it('should not allow multiple simultaneous downloads on the same share', async (t) => {
-			const { createShare, sender, receiver } = await startServers(t)
+			const { createShare, createDownload, receiver } = await startServers(t)
 
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
+			const share = await createShare().json()
 
 			// Start first download
-			const download1 = await receiver
-				.post('downloads', {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const download1 = await createDownload(share).json<any>()
 			// Wait for first download to start
 			const es1 = createEventSource(
 				`${receiver.localBaseUrl}${receiver.eventsPath(download1.downloadId)}`,
@@ -1232,16 +1074,7 @@ describe('Map Shares and Downloads', () => {
 			)
 
 			// Try to start second download while first is in progress
-			const download2 = await receiver
-				.post('downloads', {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const download2 = await createDownload(share).json<any>()
 
 			const events = await eventsUntil(receiver, download2.downloadId, 'error')
 			// Verify that no bytes were downloaded in the second download
@@ -1257,35 +1090,26 @@ describe('Map Shares and Downloads', () => {
 		}, 2000)
 
 		it('should reject download after share is declined', async (t) => {
-			const { createShare, sender, receiver } = await startServers(t)
+			const { createShare, createDownload, sender, receiver } =
+				await startServers(t)
 
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
+			const share = await createShare().json()
 
 			// Decline the share
 			const declineResponse = await receiver.post(
-				`mapShares/${shareId}/decline`,
+				`mapShares/${share.shareId}/decline`,
 				{
 					json: {
 						reason: 'user_rejected',
 						senderDeviceId: sender.deviceId,
-						mapShareUrls,
+						mapShareUrls: share.mapShareUrls,
 					},
 				},
 			)
 			expect(declineResponse.status).toBe(204)
 
 			// Try to start download on declined share
-			const { downloadId } = await receiver
-				.post('downloads', {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const { downloadId } = await createDownload(share).json<any>()
 
 			// Wait for download events
 			const events = await eventsUntil(receiver, downloadId, 'error')
@@ -1299,18 +1123,18 @@ describe('Map Shares and Downloads', () => {
 		it('should reject decline on non-pending share', async (t) => {
 			const { createShare, sender, receiver } = await startServers(t)
 
-			const { shareId, mapShareUrls } = await createShare().json()
+			const share = await createShare().json()
 
 			// Cancel the share first
-			await sender.post(`mapShares/${shareId}/cancel`)
+			await sender.post(`mapShares/${share.shareId}/cancel`)
 
 			const declineResponse = await receiver.post(
-				`mapShares/${shareId}/decline`,
+				`mapShares/${share.shareId}/decline`,
 				{
 					json: {
 						reason: 'user_rejected',
 						senderDeviceId: sender.deviceId,
-						mapShareUrls,
+						mapShareUrls: share.mapShareUrls,
 					},
 				},
 			)
@@ -1320,34 +1144,27 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('should reject cancel on completed share', async (t) => {
-			const { createShare, sender, receiver } = await startServers(t)
+			const { createShare, createDownload, sender, receiver } =
+				await startServers(t)
 
-			const { shareId, mapShareUrls, estimatedSizeBytes } =
-				await createShare().json()
+			const share = await createShare().json()
 
 			// Start download
-			const { downloadId } = await receiver
-				.post('downloads', {
-					json: {
-						senderDeviceId: sender.deviceId,
-						shareId,
-						mapShareUrls,
-						estimatedSizeBytes,
-					},
-				})
-				.json<any>()
+			const { downloadId } = await createDownload(share).json<any>()
 
 			// Wait for download to complete using SSE
 			await eventsUntil(receiver, downloadId, 'completed')
 
 			// Verify share is completed
 			const completedShareData = await sender
-				.get(`mapShares/${shareId}`)
+				.get(`mapShares/${share.shareId}`)
 				.json<any>()
 			expect(completedShareData.status).toBe('completed')
 
 			// Try to cancel the completed share
-			const cancelResponse = await sender.post(`mapShares/${shareId}/cancel`)
+			const cancelResponse = await sender.post(
+				`mapShares/${share.shareId}/cancel`,
+			)
 			expect(cancelResponse.status).toBe(409)
 			const cancelError = await cancelResponse.json()
 			expect(cancelError).toHaveProperty(
@@ -1359,17 +1176,17 @@ describe('Map Shares and Downloads', () => {
 		it('should handle concurrent SSE connections to same share', async (t) => {
 			const { createShare, sender } = await startServers(t)
 
-			const { shareId } = await createShare().json()
+			const share = await createShare().json()
 
 			// Start two SSE connections to the same share
-			const sseUrl = `${sender.localBaseUrl}${sender.eventsPath(shareId)}`
+			const sseUrl = `${sender.localBaseUrl}${sender.eventsPath(share.shareId)}`
 			const es1 = createEventSource(sseUrl)
 			const es2 = createEventSource(sseUrl)
 
 			const messages1Promise = eventsUntilEs(es1, 'canceled')
 			const messages2Promise = eventsUntilEs(es2, 'canceled')
 			// Trigger an update
-			await sender.post(`mapShares/${shareId}/cancel`)
+			await sender.post(`mapShares/${share.shareId}/cancel`)
 
 			const [messages1, messages2] = await Promise.all([
 				messages1Promise,
