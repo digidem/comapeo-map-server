@@ -2,8 +2,18 @@ import { StatusError } from 'itty-router'
 
 const errorsList = [
 	{
-		code: 'DOWNLOAD_MAP_SHARE_NOT_PENDING',
-		message: 'Cannot start download: map share is not in pending state',
+		code: 'DOWNLOAD_MAP_SHARE_CANCELED',
+		message: 'The download was canceled by the sender',
+		status: 409,
+	},
+	{
+		code: 'DOWNLOAD_MAP_SHARE_ALREADY_DOWNLOADING',
+		message: 'Cannot start download: map share is already downloading',
+		status: 409,
+	},
+	{
+		code: 'DOWNLOAD_MAP_SHARE_DECLINED',
+		message: 'Cannot start download: map share has already been declined',
 		status: 409,
 	},
 	{

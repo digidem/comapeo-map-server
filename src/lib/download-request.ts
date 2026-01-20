@@ -57,8 +57,11 @@ export class DownloadRequest extends TypedEventTarget<
 				stream.abort().catch(noop)
 				if (error.name === 'AbortError') {
 					this.#updateState({ status: 'aborted' })
-				} else if (getErrorCode(error) === 'DOWNLOAD_MAP_SHARE_NOT_PENDING') {
+				} else if (getErrorCode(error) === 'DOWNLOAD_MAP_SHARE_CANCELED') {
 					this.#updateState({ status: 'canceled' })
+				} else if (getErrorCode(error)) {
+					// Specific known error from the server
+					this.#updateState({ status: 'error', error })
 				} else {
 					// Once the download has started, the sender can only close the
 					// connection to cancel the download, which we only see as an

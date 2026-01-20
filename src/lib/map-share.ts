@@ -55,8 +55,12 @@ export class MapShare extends TypedEventTarget<
 	 * Create a download response for the map share
 	 */
 	downloadResponse(readable: ReadableStream): Response {
-		if (this.#state.status !== 'pending') {
-			throw new errors.DOWNLOAD_MAP_SHARE_NOT_PENDING(
+		if (this.#state.status === 'canceled') {
+			throw new errors.DOWNLOAD_MAP_SHARE_CANCELED()
+		} else if (this.#state.status === 'declined') {
+			throw new errors.DOWNLOAD_MAP_SHARE_DECLINED()
+		} else if (this.#state.status !== 'pending') {
+			throw new errors.DOWNLOAD_MAP_SHARE_ALREADY_DOWNLOADING(
 				`Cannot download map share in status '${this.#state.status}'`,
 			)
 		}
