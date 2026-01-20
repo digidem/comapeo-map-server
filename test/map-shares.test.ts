@@ -627,11 +627,7 @@ describe('Map Shares and Downloads', () => {
 			const share = await createShare().json()
 			const { downloadId } = await createDownload(share).json<any>()
 
-			await eventsUntil(
-				receiver,
-				downloadId,
-				(msg) => JSON.parse(msg.data).bytesDownloaded > 0,
-			)
+			await eventsUntil(receiver, downloadId, downloadStarted)
 
 			const cancelResponse = await receiver.post(
 				`downloads/${downloadId}/abort`,
@@ -700,18 +696,14 @@ describe('Map Shares and Downloads', () => {
 			const { downloadId } = await createDownload(share).json<any>()
 			expect(downloadId).toBeDefined()
 
-			const es = createEventSource(
-				`${receiver.localBaseUrl}${receiver.eventsPath(downloadId)}`,
-			)
 			// Wait for download to start
-			await eventsUntilEs(es, (msg) => JSON.parse(msg.data).bytesDownloaded > 0)
+			await eventsUntil(receiver, downloadId, downloadStarted)
 
-			const canceledPromise = eventsUntilEs(es, 'canceled')
+			const canceledPromise = eventsUntil(receiver, downloadId, 'canceled')
 			// Cancel the share
 			await sender.post(`mapShares/${share.shareId}/cancel`)
 			// Wait for canceled event
 			await canceledPromise
-			es.close()
 
 			const download = await receiver.get(`downloads/${downloadId}`).json()
 			expect(download).toHaveProperty('status', 'canceled')
@@ -725,11 +717,7 @@ describe('Map Shares and Downloads', () => {
 			const { downloadId } = await createDownload(share).json<any>()
 			expect(downloadId).toBeDefined()
 
-			await eventsUntil(
-				receiver,
-				downloadId,
-				(msg) => JSON.parse(msg.data).bytesDownloaded > 0,
-			)
+			await eventsUntil(receiver, downloadId, downloadStarted)
 
 			await receiver.post(`downloads/${downloadId}/abort`)
 			await delay(10) // Wait a bit for cancellation to propagate
@@ -742,29 +730,18 @@ describe('Map Shares and Downloads', () => {
 				await startServers(t)
 			const share = await createShare().json()
 
-			const serverEs = createEventSource(
-				`${sender.localBaseUrl}${sender.eventsPath(share.shareId)}`,
-			)
-			const eventsPromise = eventsUntilEs(serverEs, 'aborted')
+			const eventsPromise = eventsUntil(sender, share.shareId, 'aborted')
 			// Start the download
 			const { downloadId } = await createDownload(share).json<any>()
 			expect(downloadId).toBeDefined()
 
 			// Wait for download to start
-			const receiverEs = createEventSource(
-				`${receiver.localBaseUrl}${receiver.eventsPath(downloadId)}`,
-			)
-			await eventsUntilEs(
-				receiverEs,
-				(msg) => JSON.parse(msg.data).bytesDownloaded > 0,
-			)
+			await eventsUntil(receiver, downloadId, downloadStarted)
 
 			// Receiver aborts the download
 			await receiver.post(`downloads/${downloadId}/abort`)
 
 			const events = await eventsPromise
-			serverEs.close()
-			receiverEs.close()
 
 			// First message should be initial state (pending)
 			expect(events[0]).toHaveProperty('status', 'pending')
@@ -787,22 +764,14 @@ describe('Map Shares and Downloads', () => {
 			// Start the download
 			const { downloadId } = await createDownload(share).json<any>()
 			expect(downloadId).toBeDefined()
-			const receiverEs = createEventSource(
-				`${receiver.localBaseUrl}${receiver.eventsPath(downloadId)}`,
-			)
-			const eventsPromise = eventsUntilEs(receiverEs, 'canceled')
 
+			const eventsPromise = eventsUntil(receiver, downloadId, 'canceled')
 			// Wait for download to start
-			await eventsUntilEs(
-				receiverEs,
-				(msg) => JSON.parse(msg.data).bytesDownloaded > 0,
-			)
+			await eventsUntil(receiver, downloadId, downloadStarted)
 
 			// Cancel the share
 			await sender.post(`mapShares/${share.shareId}/cancel`)
-
 			const events = await eventsPromise
-			receiverEs.close()
 
 			// First message should have shareId
 			expect(events[0]).toHaveProperty('shareId', share.shareId)
@@ -834,12 +803,9 @@ describe('Map Shares and Downloads', () => {
 				`${receiver.localBaseUrl}${receiver.eventsPath(downloadId)}`,
 			)
 			// Wait for download to start
-			await eventsUntilEs(
-				es,
-				(msg) => JSON.parse(msg.data).bytesDownloaded > 0,
-			)
+			await eventsUntil(receiver, downloadId, downloadStarted)
 
-			const abortedPromise = eventsUntilEs(es, 'aborted')
+			const abortedPromise = eventsUntil(receiver, downloadId, 'aborted')
 			// Abort the download
 			await receiver.post(`downloads/${downloadId}/abort`)
 			// Wait for aborted event
@@ -873,17 +839,13 @@ describe('Map Shares and Downloads', () => {
 				`${receiver.localBaseUrl}${receiver.eventsPath(downloadId)}`,
 			)
 			// Wait for download to start
-			await eventsUntilEs(
-				es,
-				(msg) => JSON.parse(msg.data).bytesDownloaded > 0,
-			)
+			await eventsUntil(receiver, downloadId, downloadStarted)
 
-			const canceledPromise = eventsUntilEs(es, 'canceled')
+			const canceledPromise = eventsUntil(receiver, downloadId, 'canceled')
 			// Cancel the share from sender side
 			await sender.post(`mapShares/${share.shareId}/cancel`)
 			// Wait for canceled event
 			await canceledPromise
-			es.close()
 
 			// Verify the original map is still accessible and unchanged
 			const afterCancelMapInfo = await receiver
@@ -901,14 +863,8 @@ describe('Map Shares and Downloads', () => {
 			const share = await createShare().json()
 			const { downloadId } = await createDownload(share).json<any>()
 
-			const es = createEventSource(
-				`${receiver.localBaseUrl}${receiver.eventsPath(downloadId)}`,
-			)
 			// Wait for download to start
-			await eventsUntilEs(
-				es,
-				(msg) => JSON.parse(msg.data).bytesDownloaded > 0,
-			)
+			await eventsUntil(receiver, downloadId, downloadStarted)
 
 			// check temp file exists
 			{
@@ -919,12 +875,11 @@ describe('Map Shares and Downloads', () => {
 				expect(hasTempFile).toBeDefined()
 			}
 
-			const abortedPromise = eventsUntilEs(es, 'aborted')
+			const abortedPromise = eventsUntil(receiver, downloadId, 'aborted')
 			// Abort the download to trigger cleanup
 			await receiver.post(`downloads/${downloadId}/abort`)
 			// Wait for aborted event
 			await abortedPromise
-			es.close()
 
 			// Check temp file is removed
 			{
@@ -1063,15 +1018,13 @@ describe('Map Shares and Downloads', () => {
 
 			// Start first download
 			const download1 = await createDownload(share).json<any>()
+			const completedPromise = eventsUntil(
+				receiver,
+				download1.downloadId,
+				'completed',
+			)
 			// Wait for first download to start
-			const es1 = createEventSource(
-				`${receiver.localBaseUrl}${receiver.eventsPath(download1.downloadId)}`,
-			)
-			const completedPromise = eventsUntilEs(es1, 'completed')
-			await eventsUntilEs(
-				es1,
-				(msg) => JSON.parse(msg.data).bytesDownloaded > 0,
-			)
+			await eventsUntil(receiver, download1.downloadId, downloadStarted)
 
 			// Try to start second download while first is in progress
 			const download2 = await createDownload(share).json<any>()
@@ -1086,7 +1039,6 @@ describe('Map Shares and Downloads', () => {
 			)
 
 			await completedPromise
-			es1.close()
 		}, 2000)
 
 		it('should reject download after share is declined', async (t) => {
@@ -1179,12 +1131,8 @@ describe('Map Shares and Downloads', () => {
 			const share = await createShare().json()
 
 			// Start two SSE connections to the same share
-			const sseUrl = `${sender.localBaseUrl}${sender.eventsPath(share.shareId)}`
-			const es1 = createEventSource(sseUrl)
-			const es2 = createEventSource(sseUrl)
-
-			const messages1Promise = eventsUntilEs(es1, 'canceled')
-			const messages2Promise = eventsUntilEs(es2, 'canceled')
+			const messages1Promise = eventsUntil(sender, share.shareId, 'canceled')
+			const messages2Promise = eventsUntil(sender, share.shareId, 'canceled')
 			// Trigger an update
 			await sender.post(`mapShares/${share.shareId}/cancel`)
 
@@ -1192,9 +1140,6 @@ describe('Map Shares and Downloads', () => {
 				messages1Promise,
 				messages2Promise,
 			])
-
-			es1.close()
-			es2.close()
 
 			// Both connections should have received messages
 			expect(messages1.at(-1)).toHaveProperty('status', 'canceled')
@@ -1316,6 +1261,14 @@ function comparableStyle(style: any) {
 		}
 	}
 	return s
+}
+
+/**
+ * Condition to check if a download has started (bytesDownloaded > 0).
+ * Use with eventsUntil to wait for download progress to begin.
+ */
+function downloadStarted(msg: EventSourceMessage): boolean {
+	return JSON.parse(msg.data).bytesDownloaded > 0
 }
 
 /**
