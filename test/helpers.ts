@@ -70,6 +70,7 @@ export async function startServer(
 		localBaseUrl: `http://127.0.0.1:${localPort}`,
 		remoteBaseUrl: `http://${nonLoopbackIPv4}:${remotePort}`,
 		keyPair,
+		customMapPath: tmpCustomMapPath,
 	}
 }
 
@@ -95,6 +96,7 @@ export async function startServers(
 			keyPair: receiverKeyPair,
 		}),
 	])
+	const onTestFinished = 'onTestFinished' in t ? t.onTestFinished.bind(t) : t
 	const receiverDeviceId = z32.encode(receiver.keyPair.publicKey)
 	const senderDeviceId = z32.encode(sender.keyPair.publicKey)
 	const kyDefaults = ky.create({ retry: 0, throwHttpErrors: false })
@@ -111,6 +113,7 @@ export async function startServers(
 				receiverDeviceId: z32.encode(receiver.keyPair.publicKey),
 			},
 		})
+
 	return {
 		sender: senderLocal,
 		receiver: receiverLocal,
@@ -127,6 +130,7 @@ export async function startServers(
 		receiverKeyPair,
 		receiverDeviceId,
 		receiverRemoteBaseUrl: receiver.remoteBaseUrl,
+		receiverCustomMapPath: receiver.customMapPath,
 	}
 }
 
