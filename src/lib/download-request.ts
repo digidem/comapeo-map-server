@@ -44,8 +44,15 @@ export class DownloadRequest extends TypedEventTarget<
 			bytesDownloaded: 0,
 			downloadId: generateId(),
 		}
-		const remotePublicKey = z32.decode(this.#state.senderDeviceId)
-		if (!remotePublicKey || remotePublicKey.length !== 32) {
+		let remotePublicKey: Uint8Array
+		try {
+			remotePublicKey = z32.decode(this.#state.senderDeviceId)
+		} catch {
+			throw new errors.INVALID_SENDER_DEVICE_ID(
+				`Invalid sender device ID: ${this.#state.senderDeviceId}`,
+			)
+		}
+		if (remotePublicKey.length !== 32) {
 			throw new errors.INVALID_SENDER_DEVICE_ID(
 				`Invalid sender device ID: ${this.#state.senderDeviceId}`,
 			)

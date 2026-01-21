@@ -75,6 +75,12 @@ describe('Map Shares and Downloads', () => {
 			expect(response.status).toBe(404)
 		})
 
+		it('should return 404 for events on non-existent share', async (t) => {
+			const { sender } = await startServers(t)
+			const response = await sender.get(`mapShares/nonexistent-share-id/events`)
+			expect(response.status).toBe(404)
+		})
+
 		it('should return 404 when creating share for non-existent map', async (t) => {
 			const { sender, receiver } = await startServers(t)
 
@@ -180,6 +186,22 @@ describe('Map Shares and Downloads', () => {
 			expect(response.status).toBe(404)
 		})
 
+		it('should return 404 for events on non-existent download', async (t) => {
+			const { receiver } = await startServers(t.onTestFinished)
+			const response = await receiver.get(
+				`downloads/nonexistent-download-id/events`,
+			)
+			expect(response.status).toBe(404)
+		})
+
+		it('should return 404 when aborting non-existent download', async (t) => {
+			const { receiver } = await startServers(t.onTestFinished)
+			const response = await receiver.post(
+				`downloads/nonexistent-download-id/abort`,
+			)
+			expect(response.status).toBe(404)
+		})
+
 		it('should reject multiple simultaneous downloads of the same share', async (t) => {
 			const { createShare, createDownload, receiver } = await startServers(t)
 
@@ -279,6 +301,34 @@ describe('Map Shares and Downloads', () => {
 				)
 				expect(cancelResponse.status).toBe(409)
 				const cancelError = await cancelResponse.json()
+				expect(cancelError).toHaveProperty(
+					'code',
+					'CANCEL_NOT_PENDING_OR_DOWNLOADING',
+				)
+			})
+
+			it('should return 404 when canceling non-existent share', async (t) => {
+				const { sender } = await startServers(t)
+				const response = await sender.post(`mapShares/nonexistent-share-id/cancel`)
+				expect(response.status).toBe(404)
+			})
+
+			it('should reject cancel on already canceled share', async (t) => {
+				const { createShare, sender } = await startServers(t)
+				const share = await createShare().json()
+
+				// Cancel the share
+				const firstCancelResponse = await sender.post(
+					`mapShares/${share.shareId}/cancel`,
+				)
+				expect(firstCancelResponse.status).toBe(204)
+
+				// Try to cancel again
+				const secondCancelResponse = await sender.post(
+					`mapShares/${share.shareId}/cancel`,
+				)
+				expect(secondCancelResponse.status).toBe(409)
+				const cancelError = await secondCancelResponse.json()
 				expect(cancelError).toHaveProperty(
 					'code',
 					'CANCEL_NOT_PENDING_OR_DOWNLOADING',
@@ -396,6 +446,41 @@ describe('Map Shares and Downloads', () => {
 				expect(declineResponse.status).toBe(409)
 				const declineError = await declineResponse.json()
 				expect(declineError).toHaveProperty('code', 'DECLINE_NOT_PENDING')
+			})
+
+			it('should return 404 when declining non-existent share', async (t) => {
+				const { sender, receiver } = await startServers(t)
+
+				const declineResponse = await receiver.post(
+					`mapShares/nonexistent-share-id/decline`,
+					{
+						json: {
+							reason: 'user_rejected',
+							senderDeviceId: sender.deviceId,
+							mapShareUrls: [`http://127.0.0.1:${sender.remotePort}/mapShares/nonexistent-share-id`],
+						},
+					},
+				)
+				expect(declineResponse.status).toBe(404)
+			})
+
+			it('should return 500 when local decline cannot connect to sender', async (t) => {
+				const { sender, receiver } = await startServers(t)
+
+				// Use an invalid port that won't have anything listening
+				const declineResponse = await receiver.post(
+					`mapShares/some-share-id/decline`,
+					{
+						json: {
+							reason: 'user_rejected',
+							senderDeviceId: sender.deviceId,
+							mapShareUrls: ['http://127.0.0.1:1/mapShares/some-share-id'],
+						},
+					},
+				)
+				expect(declineResponse.status).toBe(500)
+				const error = await declineResponse.json()
+				expect(error).toHaveProperty('code', 'DECLINE_CANNOT_CONNECT')
 			})
 		})
 
@@ -787,6 +872,20 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		describe('Device ID Validation', () => {
+			it('should return 404 when downloading non-existent share', async (t) => {
+				const { sender, receiver } = await startServers(t)
+
+				const downloadUrl = `http://127.0.0.1:${sender.remotePort}/mapShares/nonexistent-share-id/download`
+				const response = (await secretStreamFetch(downloadUrl, {
+					dispatcher: new SecretStreamAgent({
+						keyPair: receiver.keyPair,
+						remotePublicKey: sender.keyPair.publicKey,
+					}),
+				})) as unknown as Response
+
+				expect(response.status).toBe(404)
+			})
+
 			it('should reject share access with wrong device ID', async (t) => {
 				const { sender, receiver } = await startServers(t)
 
@@ -901,6 +1000,74 @@ describe('Map Shares and Downloads', () => {
 
 				// Should get 403 Forbidden
 				expect(response.status).toBe(403)
+			})
+
+			it('should reject remote decline with invalid body', async (t) => {
+				const { createShare, sender, receiver } = await startServers(t)
+				const { shareId } = await createShare().json()
+
+				const invalidBodies = [
+					{}, // Missing reason
+					{ reason: 123 }, // Invalid type for reason
+					{ reason: '' }, // Empty reason
+				]
+
+				for (const body of invalidBodies) {
+					const declineUrl = `http://127.0.0.1:${sender.remotePort}/mapShares/${shareId}/decline`
+					const response = (await secretStreamFetch(declineUrl, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(body),
+						dispatcher: new SecretStreamAgent({
+							keyPair: receiver.keyPair,
+							remotePublicKey: sender.keyPair.publicKey,
+						}),
+					})) as unknown as Response
+
+					expect(response.status).toBe(400)
+				}
+			})
+
+			it('should reject remote decline with malformed JSON', async (t) => {
+				const { createShare, sender, receiver } = await startServers(t)
+				const { shareId } = await createShare().json()
+
+				const declineUrl = `http://127.0.0.1:${sender.remotePort}/mapShares/${shareId}/decline`
+				const response = (await secretStreamFetch(declineUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: 'not valid json',
+					dispatcher: new SecretStreamAgent({
+						keyPair: receiver.keyPair,
+						remotePublicKey: sender.keyPair.publicKey,
+					}),
+				})) as unknown as Response
+
+				expect(response.status).toBe(400)
+			})
+
+			it('should pass through error from sender when remote decline fails', async (t) => {
+				const { createShare, sender, receiver } = await startServers(t)
+				const share = await createShare().json()
+
+				// First, cancel the share so decline will fail with DECLINE_NOT_PENDING
+				await sender.post(`mapShares/${share.shareId}/cancel`)
+
+				// Now try to decline remotely - should get the error passed through
+				const declineUrl = `http://127.0.0.1:${sender.remotePort}/mapShares/${share.shareId}/decline`
+				const response = (await secretStreamFetch(declineUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ reason: 'user_rejected' }),
+					dispatcher: new SecretStreamAgent({
+						keyPair: receiver.keyPair,
+						remotePublicKey: sender.keyPair.publicKey,
+					}),
+				})) as unknown as Response
+
+				expect(response.status).toBe(409)
+				const error = await response.json()
+				expect(error).toHaveProperty('code', 'DECLINE_NOT_PENDING')
 			})
 		})
 	})
@@ -1101,6 +1268,23 @@ describe('Map Shares and Downloads', () => {
 					expect(response.status).toBe(400)
 				}
 			})
+
+			it('should reject download with invalid sender device ID format', async (t) => {
+				const { receiver } = await startServers(t)
+
+				const response = await receiver.post('downloads', {
+					json: {
+						senderDeviceId: 'not-a-valid-z32-encoded-public-key',
+						shareId: 'test-share',
+						mapShareUrls: ['http://127.0.0.1:1/mapShares/test-share'],
+						estimatedSizeBytes: 1000,
+					},
+				})
+
+				expect(response.status).toBe(400)
+				const error = await response.json()
+				expect(error).toHaveProperty('code', 'INVALID_SENDER_DEVICE_ID')
+			})
 		})
 
 		describe('Map Upload/Delete Validation', () => {
@@ -1195,6 +1379,62 @@ describe('Map Shares and Downloads', () => {
 				(f) => f.startsWith(receiverBasename) && f.includes('.download-'),
 			)
 			expect(tempFiles).toHaveLength(0)
+		})
+
+		it('should try next URL when first mapShareUrl fails during download', async (t) => {
+			const { createShare, sender, receiver } = await startServers(t)
+
+			const share = await createShare().json()
+
+			// Create download with first URL invalid, second URL valid
+			const createDownloadResponse = await receiver.post('downloads', {
+				json: {
+					senderDeviceId: sender.deviceId,
+					shareId: share.shareId,
+					// First URL is invalid (port 1), second is the real one
+					mapShareUrls: [
+						'http://127.0.0.1:1/mapShares/' + share.shareId,
+						...share.mapShareUrls,
+					],
+					estimatedSizeBytes: share.estimatedSizeBytes,
+				},
+			})
+			expect(createDownloadResponse.status).toBe(201)
+			const { downloadId } = await createDownloadResponse.json<any>()
+
+			// Download should complete successfully using the second URL
+			const events = await eventsUntil(receiver, downloadId, 'completed')
+			expect(events.at(-1)).toHaveProperty('status', 'completed')
+		})
+
+		it('should try next URL when first mapShareUrl fails during local decline', async (t) => {
+			const { createShare, sender, receiver } = await startServers(t)
+
+			const share = await createShare().json()
+
+			// Decline with first URL invalid, second URL valid
+			const declineResponse = await receiver.post(
+				`mapShares/${share.shareId}/decline`,
+				{
+					json: {
+						reason: 'user_rejected',
+						senderDeviceId: sender.deviceId,
+						// First URL is invalid (port 1), second is the real one
+						mapShareUrls: [
+							'http://127.0.0.1:1/mapShares/' + share.shareId,
+							...share.mapShareUrls,
+						],
+					},
+				},
+			)
+			expect(declineResponse.status).toBe(204)
+
+			// Verify share was declined on sender
+			const shareStatus = await sender
+				.get(`mapShares/${share.shareId}`)
+				.json<any>()
+			expect(shareStatus.status).toBe('declined')
+			expect(shareStatus.reason).toBe('user_rejected')
 		})
 	})
 })
