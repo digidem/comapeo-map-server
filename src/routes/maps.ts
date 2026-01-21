@@ -74,7 +74,17 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 		if (request.params.mapId === DEFAULT_MAP_ID) {
 			return defaultMapHandler(request)
 		}
-		return smpServer.fetch(request, await ctx.getReader(request.params.mapId))
+		// Get the reader first - this throws MAP_NOT_FOUND for unknown map IDs
+		const reader = await ctx.getReader(request.params.mapId)
+		try {
+			return await smpServer.fetch(request, reader)
+		} catch (err) {
+			// Convert generic 404 from smpServer to RESOURCE_NOT_FOUND
+			if (err instanceof Error && 'status' in err && err.status === 404) {
+				throw new errors.RESOURCE_NOT_FOUND()
+			}
+			throw err
+		}
 	})
 
 	// Special handler for the default map ID that tries to serve a custom map
