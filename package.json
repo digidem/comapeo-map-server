@@ -67,14 +67,11 @@
 		"typed-event-target": "^3.4.0",
 		"z32": "^1.1.0"
 	},
-	"bundledDependencies": [
+	"bundleDependencies": [
 		"@whatwg-node/server"
 	],
 	"files": [
 		"src/",
 		"dist/"
-	],
-	"bundleDependencies": [
-		"@whatwg-node/server"
 	]
 }
