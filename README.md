@@ -278,9 +278,9 @@ Creates a share offer for a specific device.
 	"receiverDeviceId": "kmx8sejfn...",
 	"mapId": "custom",
 	"mapName": "My Custom Map",
-	"downloadUrls": [
-		"http://192.168.1.100:9090/mapShares/abc123.../download",
-		"http://10.0.0.5:9090/mapShares/abc123.../download"
+	"mapShareUrls": [
+		"http://192.168.1.100:9090/mapShares/abc123...",
+		"http://10.0.0.5:9090/mapShares/abc123..."
 	],
 	"bounds": [-122.5, 37.5, -122.0, 38.0],
 	"minzoom": 0,
@@ -290,7 +290,7 @@ Creates a share offer for a specific device.
 }
 ```
 
-The `downloadUrls` contain all local IP addresses of the sender. The receiver tries each until one succeeds.
+The `mapShareUrls` contain all local IP addresses of the sender. The receiver tries each until one succeeds.
 
 #### Monitor Share Progress (Sender)
 
@@ -308,6 +308,7 @@ Server-Sent Events stream for real-time status updates.
 - `completed` - Transfer finished
 - `declined` - Receiver declined (includes `reason`)
 - `canceled` - Sender canceled
+- `aborted` - Receiver aborted the download
 - `error` - Transfer failed (includes `error`)
 
 #### Cancel Share (Sender)
@@ -327,7 +328,7 @@ Content-Type: application/json
 {
   "senderDeviceId": "z32-encoded-public-key",
   "shareId": "abc123...",
-  "downloadUrls": ["http://192.168.1.100:9090/mapShares/abc123.../download"],
+  "mapShareUrls": ["http://192.168.1.100:9090/mapShares/abc123..."],
   "estimatedSizeBytes": 12345678
 }
 ```
@@ -354,10 +355,10 @@ Accept: text/event-stream
 
 Real-time download progress via Server-Sent Events.
 
-#### Cancel Download (Receiver)
+#### Abort Download (Receiver)
 
 ```http
-POST /downloads/{downloadId}/cancel
+POST /downloads/{downloadId}/abort
 ```
 
 Returns 204 No Content.
@@ -463,7 +464,7 @@ yourApp.onMessage(async (message) => {
 
 	if (!accept) {
 		// Decline via P2P connection
-		await fetch(`${share.downloadUrls[0].replace('/download', '/decline')}`, {
+		await fetch(`${share.mapShareUrls[0]}/decline`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ reason: 'user_rejected' }),
@@ -478,7 +479,7 @@ yourApp.onMessage(async (message) => {
 		body: JSON.stringify({
 			senderDeviceId: message.senderDeviceId,
 			shareId: share.shareId,
-			downloadUrls: share.downloadUrls,
+			mapShareUrls: share.mapShareUrls,
 			estimatedSizeBytes: share.estimatedSizeBytes,
 		}),
 	})
@@ -511,6 +512,52 @@ yourApp.onMessage(async (message) => {
 - **Device Authorization**: Each share is tied to a specific receiver device ID (public key)
 - **Access Validation**: Remote requests are rejected unless the authenticated client public key matches the share's `receiverDeviceId`
 
+## Errors
+
+All error responses follow this format:
+
+```json
+{
+	"code": "ERROR_CODE",
+	"error": "Human-readable error message"
+}
+```
+
+### Map Errors
+
+| Code               | Status | Description                               |
+| ------------------ | ------ | ----------------------------------------- |
+| `MAP_NOT_FOUND`    | 404    | The requested map does not exist          |
+| `INVALID_MAP_FILE` | 400    | The uploaded file is not a valid SMP file |
+
+### Map Share Errors (Sender-side)
+
+| Code                          | Status | Description                                              |
+| ----------------------------- | ------ | -------------------------------------------------------- |
+| `MAP_SHARE_NOT_FOUND`         | 404    | The requested map share does not exist                   |
+| `CANCEL_SHARE_NOT_CANCELABLE` | 409    | Cannot cancel a share that is not pending or downloading |
+| `DECLINE_SHARE_NOT_PENDING`   | 409    | Cannot decline a share that is not pending               |
+| `DECLINE_CANNOT_CONNECT`      | 502    | Unable to connect to the sender to decline the share     |
+
+### Download Errors (Receiver-side)
+
+| Code                         | Status | Description                                                |
+| ---------------------------- | ------ | ---------------------------------------------------------- |
+| `DOWNLOAD_NOT_FOUND`         | 404    | The requested download does not exist                      |
+| `DOWNLOAD_ERROR`             | 500    | The download failed unexpectedly                           |
+| `DOWNLOAD_SHARE_CANCELED`    | 409    | The sender canceled the share before download completed    |
+| `DOWNLOAD_SHARE_DECLINED`    | 409    | Cannot download a share that was declined                  |
+| `DOWNLOAD_SHARE_NOT_PENDING` | 409    | Cannot download a share that is not pending                |
+| `ABORT_NOT_DOWNLOADING`      | 409    | Cannot abort a download that is not in progress            |
+| `INVALID_SENDER_DEVICE_ID`   | 400    | The sender device ID is not a valid z32-encoded public key |
+
+### Generic Errors
+
+| Code              | Status | Description                                                 |
+| ----------------- | ------ | ----------------------------------------------------------- |
+| `FORBIDDEN`       | 403    | Access denied (remote request without valid authentication) |
+| `INVALID_REQUEST` | 400    | The request body is missing or malformed                    |
+
 ## Network Discovery
 
 This library **does not** handle peer discovery. You need to implement that separately:
@@ -520,7 +567,7 @@ This library **does not** handle peer discovery. You need to implement that sepa
 - **QR codes** - Scan to exchange device IDs and IP addresses
 - **Manual entry** - Let users type IP addresses
 
-The sender provides all their local IP addresses in `downloadUrls`. The receiver tries each until one connects.
+The sender provides all their local IP addresses in `mapShareUrls`. The receiver tries each until one connects.
 
 ## Use Cases
 
