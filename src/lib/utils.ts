@@ -1,3 +1,5 @@
+import type { SMPStyle } from 'styled-map-package'
+
 import type { BBox } from '../types.js'
 
 /**
@@ -43,10 +45,6 @@ export function unionBBox(bboxes: [BBox, ...BBox[]]): BBox {
 	}
 	return [w, s, e, n]
 }
-
-type SMPStyle = Awaited<
-	ReturnType<typeof import('styled-map-package').Reader.prototype.getStyle>
->
 
 export function getStyleBbox(style: SMPStyle): BBox {
 	const sourceBboxes: BBox[] = []
