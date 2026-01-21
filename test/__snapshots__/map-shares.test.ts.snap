@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Map Shares and Downloads > Map Shares (Sender) > should create a map share 1`] = `
+exports[`Map Shares and Downloads > Map Shares > should create a map share 1`] = `
 {
   "bounds": [
     5.625,
