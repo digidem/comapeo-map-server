@@ -1,11 +1,6 @@
 import os from 'node:os'
 
-import {
-	IRequestStrict,
-	IttyRouter,
-	StatusError,
-	type RequestHandler,
-} from 'itty-router'
+import { IRequestStrict, IttyRouter, type RequestHandler } from 'itty-router'
 import {
 	fetch as secretStreamFetch,
 	Agent as SecretStreamAgent,
@@ -15,7 +10,7 @@ import { Compile } from 'typebox/compile'
 import z32 from 'z32'
 
 import type { Context } from '../context.js'
-import { errors } from '../lib/errors.js'
+import { errors, StatusError } from '../lib/errors.js'
 import { createEventStreamResponse } from '../lib/event-stream-response.js'
 import { MapShare } from '../lib/map-share.js'
 import { SelfEvictingTimeoutMap } from '../lib/self-evicting-map.js'
