@@ -27,10 +27,10 @@ describe('Map Shares and Downloads', () => {
 	describe('Map Shares', () => {
 		it('should create a map share', async (t) => {
 			const { createShare } = await startServers(t)
+			const timeBeforeRequest = Date.now()
 			const response = await createShare()
 			expect(response.status).toBe(201)
 
-			const timeBeforeRequest = Date.now() - 10
 			const share = await response.json()
 			const {
 				shareId,
@@ -372,7 +372,9 @@ describe('Map Shares and Downloads', () => {
 
 			it('should return 404 when canceling non-existent share', async (t) => {
 				const { sender } = await startServers(t)
-				const response = await sender.post(`mapShares/nonexistent-share-id/cancel`)
+				const response = await sender.post(
+					`mapShares/nonexistent-share-id/cancel`,
+				)
 				expect(response.status).toBe(404)
 				const body = await response.json()
 				expect(body).toHaveProperty('code', 'MAP_SHARE_NOT_FOUND')
@@ -522,7 +524,9 @@ describe('Map Shares and Downloads', () => {
 						json: {
 							reason: 'user_rejected',
 							senderDeviceId: sender.deviceId,
-							mapShareUrls: [`http://127.0.0.1:${sender.remotePort}/mapShares/nonexistent-share-id`],
+							mapShareUrls: [
+								`http://127.0.0.1:${sender.remotePort}/mapShares/nonexistent-share-id`,
+							],
 						},
 					},
 				)
