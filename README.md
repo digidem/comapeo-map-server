@@ -370,11 +370,13 @@ POST /mapShares/{shareId}/decline
 Content-Type: application/json
 
 {
+  "senderDeviceId": "z32-encoded-public-key",
+  "mapShareUrls": ["http://192.168.1.100:9090/mapShares/abc123..."],
   "reason": "disk_full" | "user_rejected" | "other reason"
 }
 ```
 
-Accessed via the P2P server (remote connection).
+Called on the receiver's local server. The server handles making the P2P request to the sender to notify them of the decline. Returns 204 No Content on success.
 
 ## Complete Example: Sharing Between Two Devices
 
@@ -463,12 +465,19 @@ yourApp.onMessage(async (message) => {
 	)
 
 	if (!accept) {
-		// Decline via P2P connection
-		await fetch(`${share.mapShareUrls[0]}/decline`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ reason: 'user_rejected' }),
-		})
+		// Decline via local server (server handles P2P request to sender)
+		await fetch(
+			`http://127.0.0.1:${localPort}/mapShares/${share.shareId}/decline`,
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					senderDeviceId: message.senderDeviceId,
+					mapShareUrls: share.mapShareUrls,
+					reason: 'user_rejected',
+				}),
+			},
+		)
 		return
 	}
 
