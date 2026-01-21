@@ -55,9 +55,24 @@ describe('Map Shares and Downloads', () => {
 
 		it('should list all map shares', async (t) => {
 			const { sender, createShare } = await startServers(t)
-			const share = await createShare().json()
-			const shares = await sender.get('mapShares').json()
-			expect(shares).toEqual([share])
+
+			// Test with zero shares
+			const emptyShares = await sender.get('mapShares').json()
+			expect(emptyShares).toEqual([])
+
+			// Test with one share
+			const share1 = await createShare().json()
+			const oneShare = await sender.get('mapShares').json()
+			expect(oneShare).toEqual([share1])
+
+			// Test with multiple shares
+			const share2 = await createShare().json()
+			const share3 = await createShare().json()
+			const multipleShares = await sender.get('mapShares').json<any[]>()
+			expect(multipleShares).toHaveLength(3)
+			expect(multipleShares.map((s) => s.shareId)).toContain(share1.shareId)
+			expect(multipleShares.map((s) => s.shareId)).toContain(share2.shareId)
+			expect(multipleShares.map((s) => s.shareId)).toContain(share3.shareId)
 		})
 
 		it('should get a specific map share', async (t) => {
@@ -129,6 +144,41 @@ describe('Map Shares and Downloads', () => {
 			expect(shares.map((s: any) => s.shareId)).toContain(share1.shareId)
 			expect(shares.map((s: any) => s.shareId)).toContain(share2.shareId)
 		})
+
+		it('should allow creating shares for multiple receivers', async (t) => {
+			const { sender, receiver, createShare } = await startServers(t)
+
+			// Create a third device (another receiver)
+			const receiver2KeyPair = SecretStreamAgent.keyPair(Buffer.alloc(32, 2))
+			const receiver2DeviceId = z32.encode(receiver2KeyPair.publicKey)
+
+			// Create share for first receiver
+			const share1 = await createShare().json()
+			expect(share1).toHaveProperty('shareId')
+			expect(share1.receiverDeviceId).toBe(receiver.deviceId)
+
+			// Create share for second receiver
+			const response2 = await sender.post('mapShares', {
+				json: {
+					mapId: 'custom',
+					receiverDeviceId: receiver2DeviceId,
+				},
+			})
+			expect(response2.status).toBe(201)
+			const share2 = await response2.json<any>()
+			expect(share2).toHaveProperty('shareId')
+			expect(share2.receiverDeviceId).toBe(receiver2DeviceId)
+
+			// Shares should have different IDs and different receivers
+			expect(share1.shareId).not.toBe(share2.shareId)
+			expect(share1.receiverDeviceId).not.toBe(share2.receiverDeviceId)
+
+			// Both shares should be listed
+			const shares = await sender.get('mapShares').json<any[]>()
+			expect(shares).toHaveLength(2)
+			expect(shares.map((s: any) => s.shareId)).toContain(share1.shareId)
+			expect(shares.map((s: any) => s.shareId)).toContain(share2.shareId)
+		})
 	})
 
 	describe('Downloads', () => {
@@ -191,14 +241,44 @@ describe('Map Shares and Downloads', () => {
 
 		it('should list all downloads', async (t) => {
 			const { receiver, createShare, createDownload } = await startServers(t)
-			const share = await createShare().json()
 
-			// Now create a download on the receiver using the real share
-			const download = await createDownload(share).json<any>()
-			const downloads = await receiver.get(`downloads`).json()
-			expect(downloads).toEqual([download])
-			// Wait for download to complete to clean up background connections
-			await eventsUntil(receiver, download.downloadId, 'completed')
+			// Test with zero downloads
+			const emptyDownloads = await receiver.get(`downloads`).json()
+			expect(emptyDownloads).toEqual([])
+
+			// Test with one download
+			const share1 = await createShare().json()
+			const download1 = await createDownload(share1).json<any>()
+			const oneDownload = await receiver.get(`downloads`).json()
+			expect(oneDownload).toEqual([download1])
+
+			// Wait for first download to complete before starting second
+			await eventsUntil(receiver, download1.downloadId, 'completed')
+
+			// Test with multiple downloads
+			const share2 = await createShare().json()
+			const download2 = await createDownload(share2).json<any>()
+
+			const share3 = await createShare().json()
+			const download3 = await createDownload(share3).json<any>()
+
+			const multipleDownloads = await receiver.get(`downloads`).json<any[]>()
+			expect(multipleDownloads).toHaveLength(3)
+			expect(multipleDownloads.map((d) => d.downloadId)).toContain(
+				download1.downloadId,
+			)
+			expect(multipleDownloads.map((d) => d.downloadId)).toContain(
+				download2.downloadId,
+			)
+			expect(multipleDownloads.map((d) => d.downloadId)).toContain(
+				download3.downloadId,
+			)
+
+			// Wait for remaining downloads to complete to clean up background connections
+			await Promise.all([
+				eventsUntil(receiver, download2.downloadId, 'completed'),
+				eventsUntil(receiver, download3.downloadId, 'completed'),
+			])
 		})
 
 		it('should get a specific download', async (t) => {
