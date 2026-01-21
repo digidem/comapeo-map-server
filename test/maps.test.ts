@@ -449,20 +449,34 @@ describe('Map Upload', () => {
 		expect(style2).toEqual(expectedStyle)
 	})
 
-	it('should return 404 when trying to delete fallback map', async (t) => {
+	it('should return 403 FORBIDDEN when trying to delete fallback map', async (t) => {
 		const { localBaseUrl } = await startServer(t)
 		const response = await fetch(`${localBaseUrl}/maps/fallback`, {
 			method: 'DELETE',
 		})
-		expect(response.status).toBe(404)
+		expect(response.status).toBe(403)
+		const error = await response.json()
+		expect(error.code).toBe('FORBIDDEN')
 	})
 
-	it('should return 404 when trying to delete default map', async (t) => {
+	it('should return 403 FORBIDDEN when trying to delete default map', async (t) => {
 		const { localBaseUrl } = await startServer(t)
 		const response = await fetch(`${localBaseUrl}/maps/default`, {
 			method: 'DELETE',
 		})
+		expect(response.status).toBe(403)
+		const error = await response.json()
+		expect(error.code).toBe('FORBIDDEN')
+	})
+
+	it('should return 404 when trying to delete arbitrary mapId', async (t) => {
+		const { localBaseUrl } = await startServer(t)
+		const response = await fetch(`${localBaseUrl}/maps/someotherid`, {
+			method: 'DELETE',
+		})
 		expect(response.status).toBe(404)
+		const error = await response.json()
+		expect(error.code).toBe('MAP_NOT_FOUND')
 	})
 
 	it('should upload custom map again after deletion', async (t) => {

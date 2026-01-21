@@ -68,7 +68,14 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 
 	router.delete<MapRequest>('/:mapId', async (request) => {
 		// Only allow deleting the custom map ID
-		if (request.params.mapId !== CUSTOM_MAP_ID) {
+		if (
+			request.params.mapId === DEFAULT_MAP_ID ||
+			request.params.mapId === FALLBACK_MAP_ID
+		) {
+			throw new errors.FORBIDDEN(
+				`Deleting the map ID "${request.params.mapId}" is not allowed`,
+			)
+		} else if (request.params.mapId !== CUSTOM_MAP_ID) {
 			throw new errors.MAP_NOT_FOUND(`Map not found: ${request.params.mapId}`)
 		}
 		// Wait for any active uploads to complete before deleting

@@ -1445,7 +1445,7 @@ describe('Map Shares and Downloads', () => {
 
 			it('should reject DELETE of non-custom map', async (t) => {
 				const { sender } = await startServers(t)
-				const response = await sender.delete('maps/default')
+				const response = await sender.delete('maps/someotherid')
 
 				expect(response.status).toBe(404)
 				const body = await response.json()
