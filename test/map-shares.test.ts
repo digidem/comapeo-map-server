@@ -1420,7 +1420,7 @@ describe('Map Shares and Downloads', () => {
 		describe('Map Upload/Delete Validation', () => {
 			it('should reject PUT to non-custom map', async (t) => {
 				const { sender } = await startServers(t)
-				const response = await sender.put('maps/default', {
+				const response = await sender.put('maps/someotherid', {
 					body: 'some data',
 				})
 

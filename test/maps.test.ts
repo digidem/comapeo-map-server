@@ -581,7 +581,7 @@ describe('Invalid Map Uploads', () => {
 		expect(response.status).toBe(400)
 	})
 
-	it('should return 404 when uploading to non-custom mapId', async (t) => {
+	it('should return 403 FORBIDDEN when uploading to fallback mapId', async (t) => {
 		const { localBaseUrl } = await startServer(t)
 		const fileBuffer = fs.readFileSync(DEMOTILES_Z2)
 
@@ -593,7 +593,26 @@ describe('Invalid Map Uploads', () => {
 			},
 		})
 
-		expect(response.status).toBe(404)
+		expect(response.status).toBe(403)
+		const error = await response.json()
+		expect(error.code).toBe('FORBIDDEN')
+	})
+
+	it('should return 403 FORBIDDEN when uploading to default mapId', async (t) => {
+		const { localBaseUrl } = await startServer(t)
+		const fileBuffer = fs.readFileSync(DEMOTILES_Z2)
+
+		const response = await fetch(`${localBaseUrl}/maps/default`, {
+			method: 'PUT',
+			body: fileBuffer,
+			headers: {
+				'Content-Type': 'application/octet-stream',
+			},
+		})
+
+		expect(response.status).toBe(403)
+		const error = await response.json()
+		expect(error.code).toBe('FORBIDDEN')
 	})
 
 	it('should return 404 when uploading to arbitrary mapId', async (t) => {
@@ -609,6 +628,8 @@ describe('Invalid Map Uploads', () => {
 		})
 
 		expect(response.status).toBe(404)
+		const error = await response.json()
+		expect(error.code).toBe('MAP_NOT_FOUND')
 	})
 })
 

@@ -46,7 +46,14 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 
 	router.put<MapRequest>('/:mapId', async (request) => {
 		// Only allow uploading to the custom map ID for now
-		if (request.params.mapId !== CUSTOM_MAP_ID) {
+		if (
+			request.params.mapId === DEFAULT_MAP_ID ||
+			request.params.mapId === FALLBACK_MAP_ID
+		) {
+			throw new errors.FORBIDDEN(
+				`Uploading to map ID "${request.params.mapId}" is not allowed`,
+			)
+		} else if (request.params.mapId !== CUSTOM_MAP_ID) {
 			throw new errors.MAP_NOT_FOUND(`Map not found: ${request.params.mapId}`)
 		}
 		if (!request.body) {
