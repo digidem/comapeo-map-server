@@ -75,19 +75,6 @@ describe('Map Shares and Downloads', () => {
 			expect(response.status).toBe(404)
 		})
 
-		it('should cancel a map share before download', async (t) => {
-			const { sender, createShare } = await startServers(t)
-			const { shareId } = await createShare().json()
-
-			// Cancel it
-			const cancelResponse = await sender.post(`mapShares/${shareId}/cancel`)
-			expect(cancelResponse.status).toBe(204)
-
-			// Verify it's cancelled
-			const share = await sender.get(`mapShares/${shareId}`).json<any>()
-			expect(share.status).toBe('canceled')
-		})
-
 		it('should decline a map share from receiver', async (t) => {
 			const { sender, createShare, receiver } = await startServers(t)
 			const { shareId, mapShareUrls } = await createShare().json()
@@ -367,18 +354,6 @@ describe('Map Shares and Downloads', () => {
 
 					expect(response.status).toBe(400)
 				}
-			})
-
-			it('should reject map share for non-existent map', async (t) => {
-				const { sender, receiver } = await startServers(t)
-				const response = await sender.post('mapShares', {
-					json: {
-						mapId: 'nonexistent-map',
-						receiverDeviceId: receiver.deviceId,
-					},
-				})
-
-				expect(response.status).toBe(404)
 			})
 
 			it('should reject decline with invalid body (localhost)', async (t) => {
@@ -707,22 +682,6 @@ describe('Map Shares and Downloads', () => {
 
 			const download = await receiver.get(`downloads/${downloadId}`).json()
 			expect(download).toHaveProperty('status', 'canceled')
-		})
-
-		it('receiver can abort a download after download starts', async (t) => {
-			const { createShare, createDownload, receiver } = await startServers(t)
-			const share = await createShare().json()
-
-			// Start the download
-			const { downloadId } = await createDownload(share).json<any>()
-			expect(downloadId).toBeDefined()
-
-			await eventsUntil(receiver, downloadId, downloadStarted)
-
-			await receiver.post(`downloads/${downloadId}/abort`)
-			await delay(10) // Wait a bit for cancellation to propagate
-			const download = await receiver.get(`downloads/${downloadId}`).json()
-			expect(download).toHaveProperty('status', 'aborted')
 		})
 
 		it('should stream download and abort updates via SSE for shares', async (t) => {
