@@ -95,6 +95,34 @@ describe('Map Shares and Downloads', () => {
 			const error = await response.json()
 			expect(error).toHaveProperty('error')
 		})
+
+		it('should allow creating multiple shares for the same receiver', async (t) => {
+			const { sender, receiver, createShare } = await startServers(t)
+
+			// Create first share
+			const share1 = await createShare().json()
+			expect(share1).toHaveProperty('shareId')
+
+			// Create second share for the same receiver
+			const response2 = await sender.post('mapShares', {
+				json: {
+					mapId: 'custom',
+					receiverDeviceId: receiver.deviceId,
+				},
+			})
+			expect(response2.status).toBe(201)
+			const share2 = await response2.json<any>()
+			expect(share2).toHaveProperty('shareId')
+
+			// Shares should have different IDs
+			expect(share1.shareId).not.toBe(share2.shareId)
+
+			// Both shares should be listed
+			const shares = await sender.get('mapShares').json<any[]>()
+			expect(shares).toHaveLength(2)
+			expect(shares.map((s: any) => s.shareId)).toContain(share1.shareId)
+			expect(shares.map((s: any) => s.shareId)).toContain(share2.shareId)
+		})
 	})
 
 	describe('Downloads', () => {
@@ -231,6 +259,28 @@ describe('Map Shares and Downloads', () => {
 
 			await completedPromise
 		}, 2000)
+
+		it('should reject re-downloading a share after previous download completed', async (t) => {
+			const { createShare, createDownload, receiver } = await startServers(t)
+
+			const share = await createShare().json()
+
+			// Complete first download
+			const download1 = await createDownload(share).json<any>()
+			await eventsUntil(receiver, download1.downloadId, 'completed')
+
+			// Start second download of the same share
+			const download2 = await createDownload(share).json<any>()
+			const events = await eventsUntil(receiver, download2.downloadId, 'error')
+
+			// Second download should fail because share is no longer pending
+			// (uses ALREADY_DOWNLOADING error for any non-pending status)
+			expect(events.at(-1)).toHaveProperty('status', 'error')
+			expect(events.at(-1)).toHaveProperty(
+				'error.code',
+				'DOWNLOAD_MAP_SHARE_ALREADY_DOWNLOADING',
+			)
+		})
 	})
 
 	describe('Cancellation and Abort', () => {
@@ -742,6 +792,36 @@ describe('Map Shares and Downloads', () => {
 			// Both connections should have received messages
 			expect(messages1.at(-1)).toHaveProperty('status', 'canceled')
 			expect(messages2.at(-1)).toHaveProperty('status', 'canceled')
+		})
+
+		it('should send current state when SSE client reconnects', async (t) => {
+			const { createShare, createDownload, sender, receiver } =
+				await startServers(t)
+			const share = await createShare().json()
+
+			// Start first SSE connection
+			const es1 = createEventSource(
+				`${sender.localBaseUrl}${sender.eventsPath(share.shareId)}`,
+			)
+
+			// Wait for initial state
+			const initialEvents = await eventsUntilEs(es1, 'pending')
+			expect(initialEvents[0]).toHaveProperty('status', 'pending')
+			es1.close()
+
+			// Start download to change state
+			const { downloadId } = await createDownload(share).json<any>()
+			await eventsUntil(receiver, downloadId, 'completed')
+
+			// Reconnect - should receive current (completed) state
+			const es2 = createEventSource(
+				`${sender.localBaseUrl}${sender.eventsPath(share.shareId)}`,
+			)
+			const reconnectEvents = await eventsUntilEs(es2, 'completed')
+			es2.close()
+
+			// First message after reconnect should be current state (completed)
+			expect(reconnectEvents[0]).toHaveProperty('status', 'completed')
 		})
 	})
 
@@ -1275,6 +1355,26 @@ describe('Map Shares and Downloads', () => {
 				const response = await receiver.post('downloads', {
 					json: {
 						senderDeviceId: 'not-a-valid-z32-encoded-public-key',
+						shareId: 'test-share',
+						mapShareUrls: ['http://127.0.0.1:1/mapShares/test-share'],
+						estimatedSizeBytes: 1000,
+					},
+				})
+
+				expect(response.status).toBe(400)
+				const error = await response.json()
+				expect(error).toHaveProperty('code', 'INVALID_SENDER_DEVICE_ID')
+			})
+
+			it('should reject download with sender device ID of wrong length', async (t) => {
+				const { receiver } = await startServers(t)
+
+				// Valid z32 encoding but only 16 bytes instead of 32
+				const shortKey = z32.encode(new Uint8Array(16))
+
+				const response = await receiver.post('downloads', {
+					json: {
+						senderDeviceId: shortKey,
 						shareId: 'test-share',
 						mapShareUrls: ['http://127.0.0.1:1/mapShares/test-share'],
 						estimatedSizeBytes: 1000,
