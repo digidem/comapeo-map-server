@@ -4,9 +4,8 @@
 		"noEmit": false,
 		"outDir": "dist",
 		"declaration": true,
-		"emitDeclarationOnly": true,
+		"emitDeclarationOnly": false,
 		"declarationMap": true
 	},
-	"files": [],
-	"include": ["src/index.js"]
+	"include": ["src/index.ts", "types"]
 }
