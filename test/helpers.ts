@@ -2,7 +2,6 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-// @ts-expect-error - No types available
 import bogon from 'bogon'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
