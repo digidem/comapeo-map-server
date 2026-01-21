@@ -5,13 +5,14 @@
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
-			"default": "./src/index.js"
+			"default": "./dist/index.js"
 		}
 	},
 	"scripts": {
 		"test": "vitest run",
 		"format": "prettier --write .",
 		"lint": "eslint",
+		"types": "tsc --noEmit",
 		"prepare": "husky",
 		"prepack": "tsc -p tsconfig.npm.json"
 	},
@@ -24,7 +25,7 @@
 		"@trivago/prettier-plugin-sort-imports": "^6.0.0",
 		"@tsconfig/node18": "^18.2.6",
 		"@types/node": "^20.19.26",
-		"@vitest/coverage-v8": "^4.0.15",
+		"@vitest/coverage-v8": "^4.0.17",
 		"bogon": "^1.1.0",
 		"eslint": "^9.39.1",
 		"eventsource-client": "^1.2.0",
@@ -59,10 +60,14 @@
 		"@whatwg-node/server": "^0.10.17",
 		"itty-router": "^5.0.22",
 		"p-defer": "^4.0.1",
-		"secret-stream-http": "^1.0.0",
+		"secret-stream-http": "^1.0.1",
 		"styled-map-package": "^4.0.1",
 		"typebox": "^1.0.61",
 		"typed-event-target": "^3.4.0",
 		"z32": "^1.1.0"
-	}
+	},
+	"files": [
+		"src/",
+		"dist/"
+	]
 }
