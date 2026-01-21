@@ -73,12 +73,17 @@ describe('Map Shares and Downloads', () => {
 			const { sender } = await startServers(t)
 			const response = await sender.get(`mapShares/nonexistent-share-id`)
 			expect(response.status).toBe(404)
+			const body = await response.json()
+			expect(body).toHaveProperty('code', 'MAP_SHARE_NOT_FOUND')
+			expect(body).toHaveProperty('error')
 		})
 
 		it('should return 404 for events on non-existent share', async (t) => {
 			const { sender } = await startServers(t)
 			const response = await sender.get(`mapShares/nonexistent-share-id/events`)
 			expect(response.status).toBe(404)
+			const body = await response.json()
+			expect(body).toHaveProperty('code', 'MAP_SHARE_NOT_FOUND')
 		})
 
 		it('should return 404 when creating share for non-existent map', async (t) => {
@@ -92,8 +97,9 @@ describe('Map Shares and Downloads', () => {
 			})
 
 			expect(response.status).toBe(404)
-			const error = await response.json()
-			expect(error).toHaveProperty('error')
+			const body = await response.json()
+			expect(body).toHaveProperty('code', 'MAP_NOT_FOUND')
+			expect(body).toHaveProperty('error')
 		})
 
 		it('should allow creating multiple shares for the same receiver', async (t) => {
@@ -212,6 +218,9 @@ describe('Map Shares and Downloads', () => {
 			const { receiver } = await startServers(t.onTestFinished)
 			const response = await receiver.get(`downloads/nonexistent-download-id`)
 			expect(response.status).toBe(404)
+			const body = await response.json()
+			expect(body).toHaveProperty('code', 'DOWNLOAD_NOT_FOUND')
+			expect(body).toHaveProperty('error')
 		})
 
 		it('should return 404 for events on non-existent download', async (t) => {
@@ -220,6 +229,8 @@ describe('Map Shares and Downloads', () => {
 				`downloads/nonexistent-download-id/events`,
 			)
 			expect(response.status).toBe(404)
+			const body = await response.json()
+			expect(body).toHaveProperty('code', 'DOWNLOAD_NOT_FOUND')
 		})
 
 		it('should return 404 when aborting non-existent download', async (t) => {
@@ -228,6 +239,8 @@ describe('Map Shares and Downloads', () => {
 				`downloads/nonexistent-download-id/abort`,
 			)
 			expect(response.status).toBe(404)
+			const body = await response.json()
+			expect(body).toHaveProperty('code', 'DOWNLOAD_NOT_FOUND')
 		})
 
 		it('should reject multiple simultaneous downloads of the same share', async (t) => {
@@ -254,7 +267,7 @@ describe('Map Shares and Downloads', () => {
 			expect(events.at(-1)).toHaveProperty('status', 'error')
 			expect(events.at(-1)).toHaveProperty(
 				'error.code',
-				'DOWNLOAD_MAP_SHARE_ALREADY_DOWNLOADING',
+				'DOWNLOAD_SHARE_NOT_PENDING',
 			)
 
 			await completedPromise
@@ -278,7 +291,7 @@ describe('Map Shares and Downloads', () => {
 			expect(events.at(-1)).toHaveProperty('status', 'error')
 			expect(events.at(-1)).toHaveProperty(
 				'error.code',
-				'DOWNLOAD_MAP_SHARE_ALREADY_DOWNLOADING',
+				'DOWNLOAD_SHARE_NOT_PENDING',
 			)
 		})
 	})
@@ -353,7 +366,7 @@ describe('Map Shares and Downloads', () => {
 				const cancelError = await cancelResponse.json()
 				expect(cancelError).toHaveProperty(
 					'code',
-					'CANCEL_NOT_PENDING_OR_DOWNLOADING',
+					'CANCEL_SHARE_NOT_CANCELABLE',
 				)
 			})
 
@@ -361,6 +374,8 @@ describe('Map Shares and Downloads', () => {
 				const { sender } = await startServers(t)
 				const response = await sender.post(`mapShares/nonexistent-share-id/cancel`)
 				expect(response.status).toBe(404)
+				const body = await response.json()
+				expect(body).toHaveProperty('code', 'MAP_SHARE_NOT_FOUND')
 			})
 
 			it('should reject cancel on already canceled share', async (t) => {
@@ -381,7 +396,7 @@ describe('Map Shares and Downloads', () => {
 				const cancelError = await secondCancelResponse.json()
 				expect(cancelError).toHaveProperty(
 					'code',
-					'CANCEL_NOT_PENDING_OR_DOWNLOADING',
+					'CANCEL_SHARE_NOT_CANCELABLE',
 				)
 			})
 
@@ -471,7 +486,7 @@ describe('Map Shares and Downloads', () => {
 				expect(events.at(-1)).toHaveProperty('status', 'error')
 				expect(events.at(-1)).toHaveProperty(
 					'error.code',
-					'DOWNLOAD_MAP_SHARE_DECLINED',
+					'DOWNLOAD_SHARE_DECLINED',
 				)
 			})
 
@@ -495,7 +510,7 @@ describe('Map Shares and Downloads', () => {
 				)
 				expect(declineResponse.status).toBe(409)
 				const declineError = await declineResponse.json()
-				expect(declineError).toHaveProperty('code', 'DECLINE_NOT_PENDING')
+				expect(declineError).toHaveProperty('code', 'DECLINE_SHARE_NOT_PENDING')
 			})
 
 			it('should return 404 when declining non-existent share', async (t) => {
@@ -512,9 +527,11 @@ describe('Map Shares and Downloads', () => {
 					},
 				)
 				expect(declineResponse.status).toBe(404)
+				const body = await declineResponse.json()
+				expect(body).toHaveProperty('code', 'MAP_SHARE_NOT_FOUND')
 			})
 
-			it('should return 500 when local decline cannot connect to sender', async (t) => {
+			it('should return 502 when local decline cannot connect to sender', async (t) => {
 				const { sender, receiver } = await startServers(t)
 
 				// Use an invalid port that won't have anything listening
@@ -528,9 +545,10 @@ describe('Map Shares and Downloads', () => {
 						},
 					},
 				)
-				expect(declineResponse.status).toBe(500)
-				const error = await declineResponse.json()
-				expect(error).toHaveProperty('code', 'DECLINE_CANNOT_CONNECT')
+				expect(declineResponse.status).toBe(502)
+				const body = await declineResponse.json()
+				expect(body).toHaveProperty('code', 'DECLINE_CANNOT_CONNECT')
+				expect(body).toHaveProperty('error')
 			})
 		})
 
@@ -635,6 +653,9 @@ describe('Map Shares and Downloads', () => {
 					`downloads/${downloadId}/abort`,
 				)
 				expect(cancelResponse.status).toBe(409)
+				const body = await cancelResponse.json()
+				expect(body).toHaveProperty('code', 'ABORT_NOT_DOWNLOADING')
+				expect(body).toHaveProperty('error')
 			})
 
 			it('should preserve existing map when receiver aborts download', async (t) => {
@@ -1130,7 +1151,7 @@ describe('Map Shares and Downloads', () => {
 				const { createShare, sender, receiver } = await startServers(t)
 				const share = await createShare().json()
 
-				// First, cancel the share so decline will fail with DECLINE_NOT_PENDING
+				// First, cancel the share so decline will fail with DECLINE_SHARE_NOT_PENDING
 				await sender.post(`mapShares/${share.shareId}/cancel`)
 
 				// Now try to decline remotely - should get the error passed through
@@ -1147,7 +1168,7 @@ describe('Map Shares and Downloads', () => {
 
 				expect(response.status).toBe(409)
 				const error = await response.json()
-				expect(error).toHaveProperty('code', 'DECLINE_NOT_PENDING')
+				expect(error).toHaveProperty('code', 'DECLINE_SHARE_NOT_PENDING')
 			})
 		})
 	})
@@ -1192,6 +1213,9 @@ describe('Map Shares and Downloads', () => {
 					})
 
 					expect(response.status).toBe(400)
+					const body = await response.json()
+					expect(body).toHaveProperty('code', 'INVALID_REQUEST')
+					expect(body).toHaveProperty('error')
 				}
 			})
 
@@ -1257,6 +1281,9 @@ describe('Map Shares and Downloads', () => {
 					})
 
 					expect(response.status).toBe(400)
+					const body = await response.json()
+					expect(body).toHaveProperty('code', 'INVALID_REQUEST')
+					expect(body).toHaveProperty('error')
 				}
 			})
 		})
@@ -1346,6 +1373,9 @@ describe('Map Shares and Downloads', () => {
 					})
 
 					expect(response.status).toBe(400)
+					const body = await response.json()
+					expect(body).toHaveProperty('code', 'INVALID_REQUEST')
+					expect(body).toHaveProperty('error')
 				}
 			})
 
@@ -1395,13 +1425,22 @@ describe('Map Shares and Downloads', () => {
 				})
 
 				expect(response.status).toBe(404)
+				const body = await response.json()
+				expect(body).toHaveProperty('code', 'MAP_NOT_FOUND')
+				expect(body).toHaveProperty('error')
 			})
 
-			it('should reject PUT without body', async (t) => {
+			it('should reject PUT with empty body', async (t) => {
 				const { sender } = await startServers(t)
-				const response = await sender.put('maps/custom')
+				const response = await sender.put('maps/custom', {
+					body: '',
+				})
 
 				expect(response.status).toBe(400)
+				const body = await response.json()
+				// Empty body reaches map validation which returns INVALID_MAP_FILE
+				expect(body).toHaveProperty('code', 'INVALID_MAP_FILE')
+				expect(body).toHaveProperty('error')
 			})
 
 			it('should reject DELETE of non-custom map', async (t) => {
@@ -1409,6 +1448,8 @@ describe('Map Shares and Downloads', () => {
 				const response = await sender.delete('maps/default')
 
 				expect(response.status).toBe(404)
+				const body = await response.json()
+				expect(body).toHaveProperty('code', 'MAP_NOT_FOUND')
 			})
 		})
 	})

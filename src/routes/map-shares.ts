@@ -118,11 +118,11 @@ export function MapSharesRouter(
 	) => {
 		if (isLocalhost) return
 		if (!remoteDeviceId) {
-			throw new StatusError(403, 'Forbidden')
+			throw new errors.FORBIDDEN()
 		}
 		const mapShare = getMapShare(request.params.shareId)
 		if (!timingSafeEqual(remoteDeviceId, mapShare.state.receiverDeviceId)) {
-			throw new StatusError(403, 'Forbidden')
+			throw new errors.FORBIDDEN()
 		}
 	}
 
@@ -144,12 +144,12 @@ export function MapSharesRouter(
 		try {
 			const json = await request.json()
 			if (!CompiledLocalMapShareDeclineRequest.Check(json)) {
-				throw new StatusError(400, 'Invalid Request')
+				throw new errors.INVALID_REQUEST()
 			}
 			parsedBody = json
 		} catch (err) {
-			if (err instanceof StatusError) throw err
-			throw new StatusError(400, 'Invalid Request')
+			if ('status' in (err as object)) throw err
+			throw new errors.INVALID_REQUEST()
 		}
 		const { senderDeviceId, mapShareUrls, reason } = parsedBody
 		const remotePublicKey = z32.decode(senderDeviceId)
@@ -190,12 +190,12 @@ export function MapSharesRouter(
 		try {
 			const json = await request.json()
 			if (!CompiledRemoteMapShareDeclineRequest.Check(json)) {
-				throw new StatusError(400, 'Invalid Request')
+				throw new errors.INVALID_REQUEST()
 			}
 			parsedBody = json
 		} catch (err) {
-			if (err instanceof StatusError) throw err
-			throw new StatusError(400, 'Invalid Request')
+			if ('status' in (err as object)) throw err
+			throw new errors.INVALID_REQUEST()
 		}
 		const { reason } = parsedBody
 		const mapShare = getMapShare(request.params.shareId)

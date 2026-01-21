@@ -1,11 +1,8 @@
-import {
-	type RequestHandler,
-	type IRequestStrict,
-	StatusError,
-	type IRequest,
-} from 'itty-router'
+import { type RequestHandler, type IRequestStrict, type IRequest } from 'itty-router'
 import { Type as T, type StaticType } from 'typebox'
 import { Compile } from 'typebox/compile'
+
+import { errors } from '../lib/errors.js'
 
 /**
  * A small helper to create middleware that parses and validates the request
@@ -26,12 +23,12 @@ export const parseRequest = <
 			const json = await request.json()
 			// Use Check to validate without type coercion
 			if (!C.Check(json)) {
-				throw new StatusError(400, 'Invalid request body')
+				throw new errors.INVALID_REQUEST()
 			}
 			request.parsed = json as StaticType<[], 'Decode', {}, {}, TSchema>
 		} catch (error) {
-			if (error instanceof StatusError) throw error
-			throw new StatusError(400, 'Invalid request body')
+			if ('status' in (error as object)) throw error
+			throw new errors.INVALID_REQUEST()
 		}
 	}
 }

@@ -1,82 +1,99 @@
 import { StatusError } from 'itty-router'
 
 const errorsList = [
-	{
-		code: 'DOWNLOAD_MAP_SHARE_CANCELED',
-		message: 'The download was canceled by the sender',
-		status: 409,
-	},
-	{
-		code: 'DOWNLOAD_MAP_SHARE_ALREADY_DOWNLOADING',
-		message: 'Cannot start download: map share is already downloading',
-		status: 409,
-	},
-	{
-		code: 'DOWNLOAD_MAP_SHARE_DECLINED',
-		message: 'Cannot start download: map share has already been declined',
-		status: 409,
-	},
+	// Download errors (receiver-side)
 	{
 		code: 'DOWNLOAD_NOT_FOUND',
-		message: 'The requested download was not found',
+		error: 'Download not found',
 		status: 404,
 	},
 	{
-		code: 'DECLINE_NOT_PENDING',
-		message: 'Cannot decline map share: map share is not pending',
-		status: 409,
-	},
-	{
-		code: 'DECLINE_CANNOT_CONNECT',
-		message: 'Cannot decline map share: unable to connect to sender device',
+		code: 'DOWNLOAD_ERROR',
+		error: 'Download failed',
 		status: 500,
 	},
 	{
-		code: 'CANCEL_NOT_PENDING_OR_DOWNLOADING',
-		message: 'Cannot cancel map share: map share is not pending or downloading',
+		code: 'DOWNLOAD_SHARE_CANCELED',
+		error: 'Download canceled by sender',
+		status: 409,
+	},
+	{
+		code: 'DOWNLOAD_SHARE_DECLINED',
+		error: 'Cannot download: share was declined',
+		status: 409,
+	},
+	{
+		code: 'DOWNLOAD_SHARE_NOT_PENDING',
+		error: 'Cannot download: share is not pending',
 		status: 409,
 	},
 	{
 		code: 'ABORT_NOT_DOWNLOADING',
-		message: 'Cannot abort download: download is not downloading',
+		error: 'Cannot abort: download is not in progress',
 		status: 409,
 	},
 	{
-		code: 'MAP_NOT_FOUND',
-		message: 'The requested map was not found',
+		code: 'INVALID_SENDER_DEVICE_ID',
+		error: 'Invalid sender device ID',
+		status: 400,
+	},
+
+	// Map share errors (sender-side)
+	{
+		code: 'MAP_SHARE_NOT_FOUND',
+		error: 'Map share not found',
 		status: 404,
 	},
 	{
-		code: 'MAP_SHARE_NOT_FOUND',
-		message: 'The requested map share was not found',
+		code: 'CANCEL_SHARE_NOT_CANCELABLE',
+		error: 'Cannot cancel: share is not pending or downloading',
+		status: 409,
+	},
+	{
+		code: 'DECLINE_SHARE_NOT_PENDING',
+		error: 'Cannot decline: share is not pending',
+		status: 409,
+	},
+	{
+		code: 'DECLINE_CANNOT_CONNECT',
+		error: 'Cannot decline: unable to connect to sender',
+		status: 502,
+	},
+
+	// Map errors
+	{
+		code: 'MAP_NOT_FOUND',
+		error: 'Map not found',
 		status: 404,
 	},
 	{
 		code: 'INVALID_MAP_FILE',
-		message: 'The provided map file is invalid',
+		error: 'Invalid map file',
 		status: 400,
 	},
+
+	// Generic errors
 	{
-		code: 'INVALID_SENDER_DEVICE_ID',
-		message: 'The provided senderDeviceId is invalid',
+		code: 'FORBIDDEN',
+		error: 'Forbidden',
+		status: 403,
+	},
+	{
+		code: 'INVALID_REQUEST',
+		error: 'Invalid request',
 		status: 400,
 	},
-	{
-		code: 'DOWNLOAD_ERROR',
-		message: 'An error occurred during the download process',
-		status: 500,
-	},
-] as const satisfies Array<{ message: string; status: number; code: string }>
+] as const satisfies Array<{ error: string; status: number; code: string }>
 
 export const errors = {} as Record<
 	(typeof errorsList)[number]['code'],
 	new (body?: { [key: string]: any } | string) => StatusError
 >
-for (const { code, message, status } of errorsList) {
+for (const { code, error, status } of errorsList) {
 	errors[code] = class extends StatusError {
 		constructor(body?: { [key: string]: any } | string) {
-			body = typeof body === 'string' ? { message: body } : body
-			super(status, { code, message, ...body })
+			body = typeof body === 'string' ? { error: body } : body
+			super(status, { code, error, ...body })
 		}
 	}
 }

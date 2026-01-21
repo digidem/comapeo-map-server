@@ -56,12 +56,12 @@ export class MapShare extends TypedEventTarget<
 	 */
 	downloadResponse(readable: ReadableStream): Response {
 		if (this.#state.status === 'canceled') {
-			throw new errors.DOWNLOAD_MAP_SHARE_CANCELED()
+			throw new errors.DOWNLOAD_SHARE_CANCELED()
 		} else if (this.#state.status === 'declined') {
-			throw new errors.DOWNLOAD_MAP_SHARE_DECLINED()
+			throw new errors.DOWNLOAD_SHARE_DECLINED()
 		} else if (this.#state.status !== 'pending') {
-			throw new errors.DOWNLOAD_MAP_SHARE_ALREADY_DOWNLOADING(
-				`Cannot download map share in status '${this.#state.status}'`,
+			throw new errors.DOWNLOAD_SHARE_NOT_PENDING(
+				`Cannot download: share status is '${this.#state.status}'`,
 			)
 		}
 		this.#download?.removeAllEventListeners()
@@ -79,8 +79,8 @@ export class MapShare extends TypedEventTarget<
 		reason: Extract<MapShareStateUpdate, { status: 'declined' }>['reason'],
 	) {
 		if (this.#state.status !== 'pending') {
-			throw new errors.DECLINE_NOT_PENDING(
-				`Cannot decline map share in status '${this.#state.status}'`,
+			throw new errors.DECLINE_SHARE_NOT_PENDING(
+				`Cannot decline: share status is '${this.#state.status}'`,
 			)
 		}
 		this.#updateState({ status: 'declined', reason })
@@ -94,8 +94,8 @@ export class MapShare extends TypedEventTarget<
 			this.#state.status !== 'pending' &&
 			this.#state.status !== 'downloading'
 		) {
-			throw new errors.CANCEL_NOT_PENDING_OR_DOWNLOADING(
-				`Cannot cancel map share in status '${this.#state.status}'`,
+			throw new errors.CANCEL_SHARE_NOT_CANCELABLE(
+				`Cannot cancel: share status is '${this.#state.status}'`,
 			)
 		}
 		this.#download?.cancel()

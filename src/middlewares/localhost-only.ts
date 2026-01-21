@@ -1,8 +1,6 @@
-import {
-	StatusError,
-	type IRequestStrict,
-	type RequestHandler,
-} from 'itty-router'
+import { type IRequestStrict, type RequestHandler } from 'itty-router'
+
+import { errors } from '../lib/errors.js'
 
 /**
  * Middleware to restrict access to localhost only. The localhost listener must
@@ -13,6 +11,6 @@ export const localhostOnly: RequestHandler<
 	[{ isLocalhost: boolean }]
 > = async (_, { isLocalhost }) => {
 	if (!isLocalhost) {
-		throw new StatusError(403, 'Forbidden')
+		throw new errors.FORBIDDEN()
 	}
 }

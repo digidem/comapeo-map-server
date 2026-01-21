@@ -71,7 +71,7 @@ export function DownloadsRouter(
 		const download = getDownload(request.params.downloadId)
 		if (download.state.status !== 'downloading') {
 			throw new errors.ABORT_NOT_DOWNLOADING(
-				`Cannot abort download in status '${download.state.status}'`,
+				`Cannot abort: download status is '${download.state.status}'`,
 			)
 		}
 		download.cancel()
