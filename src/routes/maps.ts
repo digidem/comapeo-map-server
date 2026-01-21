@@ -12,8 +12,9 @@ import {
 	DEFAULT_MAP_ID,
 	FALLBACK_MAP_ID,
 } from '../lib/constants.js'
+import { errors } from '../lib/errors.js'
 import { SelfEvictingPromiseMap } from '../lib/self-evicting-map.js'
-import { noop } from '../lib/utils.js'
+import { addTrailingSlash, noop } from '../lib/utils.js'
 
 type MapRequest = IRequestStrict & {
 	params: {
@@ -22,7 +23,7 @@ type MapRequest = IRequestStrict & {
 }
 
 export function MapsRouter({ base = '/' }, ctx: Context) {
-	base = base.endsWith('/') ? base : base + '/'
+	base = addTrailingSlash(base)
 	const activeUploads = new SelfEvictingPromiseMap<string, Promise<void>>()
 
 	const smpServer = createSmpServer({
@@ -34,7 +35,7 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 	router.get<MapRequest>(`/:mapId/info`, async (request) => {
 		const info = await ctx.getMapInfo(request.params.mapId)
 		return {
-			created: info.created,
+			created: info.mapCreated,
 			size: info.estimatedSizeBytes,
 			name: info.mapName,
 		}
@@ -51,7 +52,7 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 	router.put<MapRequest>('/:mapId', async (request) => {
 		// Only allow uploading to the custom map ID for now
 		if (request.params.mapId !== CUSTOM_MAP_ID) {
-			throw new StatusError(404, 'Map not found')
+			throw new errors.MAP_NOT_FOUND(`Map not found: ${request.params.mapId}`)
 		}
 		if (!request.body) {
 			throw new StatusError(400, 'Invalid Request')
@@ -66,7 +67,7 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 	router.delete<MapRequest>('/:mapId', async (request) => {
 		// Only allow deleting the custom map ID
 		if (request.params.mapId !== CUSTOM_MAP_ID) {
-			throw new StatusError(404, 'Map not found')
+			throw new errors.MAP_NOT_FOUND(`Map not found: ${request.params.mapId}`)
 		}
 		// Wait for any active uploads to complete before deleting
 		await activeUploads.get(request.params.mapId)?.catch(noop)
@@ -112,7 +113,7 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 			}
 		}
 
-		throw new StatusError(404, 'No available map style found')
+		throw new errors.MAP_NOT_FOUND('No available map style found')
 	}
 
 	return router

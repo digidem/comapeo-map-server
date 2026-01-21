@@ -24,8 +24,13 @@ export const parseRequest = <
 	return async (request) => {
 		try {
 			const json = await request.json()
-			request.parsed = C.Parse(json)
+			// Use Check to validate without type coercion
+			if (!C.Check(json)) {
+				throw new StatusError(400, 'Invalid request body')
+			}
+			request.parsed = json as StaticType<[], 'Decode', {}, {}, TSchema>
 		} catch (error) {
+			if (error instanceof StatusError) throw error
 			throw new StatusError(400, 'Invalid request body')
 		}
 	}

@@ -4,12 +4,12 @@ import path from 'node:path'
 import { Readable, Writable } from 'node:stream'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { StatusError } from 'itty-router'
 import { Reader } from 'styled-map-package'
 import type { SetRequired } from 'type-fest'
 
 import type { ServerOptions } from './index.js'
 import { CUSTOM_MAP_ID, FALLBACK_MAP_ID } from './lib/constants.js'
+import { errors } from './lib/errors.js'
 import {
 	getErrorCode,
 	getStyleBbox,
@@ -59,17 +59,20 @@ export class Context {
 	getDefaultOnlineStyleUrl() {
 		return this.#defaultOnlineStyleUrl
 	}
+	getKeyPair() {
+		return this.#keyPair
+	}
 	async getMapInfo(mapId: string) {
 		const mapFileUrl = this.#mapFileUrls.get(mapId)
 		if (!mapFileUrl) {
-			throw new StatusError(404, `Map ID not found: ${mapId}`)
+			throw new errors.MAP_NOT_FOUND(`Map not found: ${mapId}`)
 		}
 		let stats: Stats
 		try {
 			stats = await fsPromises.stat(mapFileUrl)
 		} catch (err) {
 			if (getErrorCode(err) === 'ENOENT') {
-				throw new StatusError(404, 'Custom map not found')
+				throw new errors.MAP_NOT_FOUND(`Map not found: ${mapId}`)
 			}
 			throw err
 		}
@@ -83,7 +86,7 @@ export class Context {
 			maxzoom: getStyleMaxZoom(style),
 			minzoom: getStyleMinZoom(style),
 			estimatedSizeBytes: stats.size,
-			created: stats.ctimeMs,
+			mapCreated: stats.ctimeMs,
 		}
 	}
 	getReader(mapId: string) {
@@ -93,7 +96,7 @@ export class Context {
 		}
 		const mapFileUrl = this.#mapFileUrls.get(mapId)
 		if (!mapFileUrl) {
-			throw new StatusError(404, `Map ID not found: ${mapId}`)
+			throw new errors.MAP_NOT_FOUND(`Map ID not found: ${mapId}`)
 		}
 		const reader = new Reader(fileURLToPath(mapFileUrl))
 		this.#mapReaders.set(mapId, Promise.resolve(reader))
@@ -111,7 +114,7 @@ export class Context {
 	createMapWritableStream(mapId: string) {
 		const mapFileUrl = this.#mapFileUrls.get(mapId)
 		if (!mapFileUrl) {
-			throw new StatusError(404, `Map ID not found: ${mapId}`)
+			throw new errors.MAP_NOT_FOUND(`Map ID not found: ${mapId}`)
 		}
 		const tempPath = `${fileURLToPath(mapFileUrl)}.download-${tmpCounter++}`
 		const writable = Writable.toWeb(fs.createWriteStream(tempPath))
@@ -131,7 +134,7 @@ export class Context {
 				} catch (err) {
 					// Clean up temp file on validation failure
 					await fsPromises.unlink(tempPath).catch(noop)
-					throw new StatusError(400, 'Uploaded map file is invalid')
+					throw new errors.INVALID_MAP_FILE()
 				} finally {
 					await tempReader.close().catch(noop)
 				}
@@ -168,7 +171,7 @@ export class Context {
 	async deleteMap(mapId: string) {
 		const mapFileUrl = this.#mapFileUrls.get(mapId)
 		if (!mapFileUrl) {
-			throw new StatusError(404, `Map ID not found: ${mapId}`)
+			throw new errors.MAP_NOT_FOUND(`Map ID not found: ${mapId}`)
 		}
 		// Close and remove the reader if it exists
 		const existingReaderPromise = this.#mapReaders.get(mapId)
@@ -183,7 +186,7 @@ export class Context {
 			await fsPromises.unlink(mapFilePath)
 		} catch (err) {
 			if (getErrorCode(err) === 'ENOENT') {
-				throw new StatusError(404, 'Custom map not found')
+				throw new errors.MAP_NOT_FOUND(`Map not found: ${mapId}`)
 			}
 			throw err
 		}

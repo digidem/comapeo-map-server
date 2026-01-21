@@ -11,6 +11,7 @@ export const MapShareDeclineReason = T.Union([
 		description: 'The map share was declined by the user',
 	}),
 	T.String({
+		minLength: 1,
 		description: 'Other reason for declining the map share',
 	}),
 ])
@@ -42,15 +43,26 @@ const MapShareStateUpdate = T.Union([
 		}),
 	}),
 	T.Object({
+		status: T.Literal('aborted', {
+			description: 'Map share download was aborted (by the receiver)',
+		}),
+	}),
+	T.Object({
 		status: T.Literal('completed', { description: 'Map has been downloaded' }),
 	}),
 	T.Object({
 		status: T.Literal('error', {
 			description: 'An error occurred while downloading',
 		}),
-		error: T.Any({
-			description: 'Error that occurred while receiving the map share',
-		}),
+		error: T.Object(
+			{
+				message: T.String({ description: 'Error message' }),
+				code: T.String({ description: 'Error code' }),
+			},
+			{
+				description: 'Error that occurred while receiving the map share',
+			},
+		),
 	}),
 ])
 
@@ -59,40 +71,52 @@ export type MapShareStatus = Static<typeof MapShareStateUpdate>['status']
 
 export type DownloadStateUpdate = Extract<
 	MapShareStateUpdate,
-	{ status: 'downloading' | 'completed' | 'error' | 'canceled' }
+	{ status: 'downloading' | 'completed' | 'error' | 'canceled' | 'aborted' }
 >
 
-export const DownloadUrls = T.Array(T.String({ format: 'url' }), {
-	description: 'List of URLs to download the map data from',
+export const MapShareUrls = T.Array(T.String({ format: 'uri' }), {
+	minItems: 1,
+	description:
+		'List of map share URLs (for each network interface of the sharer)',
 })
-export type DownloadUrls = Static<typeof DownloadUrls>
-export const ShareId = T.String({ description: 'The ID of the map share' })
+export const ShareId = T.String({
+	minLength: 1,
+	description: 'The ID of the map share',
+})
 export type ShareId = Static<typeof ShareId>
 export const EstimatedSizeBytes = T.Number({
 	description: 'Estimated size of the map data in bytes',
 })
 
-const MapShareBase = T.Object({
-	receiverDeviceId: T.String({
-		description: 'The ID of the device that can receive the map share',
-	}),
-	shareId: ShareId,
-	mapName: T.String({ description: 'The name of the map being shared' }),
-	mapId: T.String({ description: 'The ID of the map being shared' }),
-	downloadUrls: DownloadUrls,
+const MapInfo = T.Object({
+	mapId: T.String({ description: 'The ID of the map' }),
+	mapName: T.String({ description: 'The name of the map' }),
+	estimatedSizeBytes: EstimatedSizeBytes,
 	bounds: T.ReadonlyType(
 		T.Tuple([T.Number(), T.Number(), T.Number(), T.Number()], {
-			description: 'The bounding box of the map data being shared',
+			description: 'The bounding box of the map data',
 		}),
 	),
-	minzoom: T.Number({
-		description: 'The minimum zoom level of the map data being shared',
+	minzoom: T.Number({ description: 'The minimum zoom level of the map data' }),
+	maxzoom: T.Number({ description: 'The maximum zoom level of the map data' }),
+	mapCreated: T.Number({
+		description: 'Timestamp (ms since epoch) when the map was created',
 	}),
-	maxzoom: T.Number({
-		description: 'The maximum zoom level of the map data being shared',
-	}),
-	estimatedSizeBytes: EstimatedSizeBytes,
 })
+
+const MapShareBase = T.Intersect([
+	T.Object({
+		receiverDeviceId: T.String({
+			description: 'The ID of the device that can receive the map share',
+		}),
+		shareId: ShareId,
+		mapShareUrls: MapShareUrls,
+		mapShareCreated: T.Number({
+			description: 'Timestamp (ms since epoch) when the map share was created',
+		}),
+	}),
+	MapInfo,
+])
 
 export const MapShareState = T.Intersect([MapShareBase, MapShareStateUpdate])
 
@@ -101,15 +125,7 @@ export type MapShareState = DistributiveIntersection<
 	Static<typeof MapShareStateUpdate>
 >
 
-export type MapInfo = {
-	mapId: string
-	mapName: string
-	estimatedSizeBytes: number
-	bounds: BBox
-	minzoom: number
-	maxzoom: number
-	created: number
-}
+export type MapInfo = Static<typeof MapInfo>
 
 export type FetchContext = {
 	isLocalhost?: boolean

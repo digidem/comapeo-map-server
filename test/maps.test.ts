@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 
 import { Reader } from 'styled-map-package'
 import { describe, it, expect } from 'vitest'

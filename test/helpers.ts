@@ -6,6 +6,7 @@ import path from 'node:path'
 import bogon from 'bogon'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
+import { Agent as SecretStreamAgent } from 'secret-stream-http'
 import type { TestContext } from 'vitest'
 
 import type { ServerOptions } from '../src/index.js'
@@ -25,11 +26,13 @@ export const ONLINE_STYLE_URL = 'https://demotiles.maplibre.org/style.json'
 let tmpCounter = 0
 
 export async function startServer(
-	t: TestContext,
+	t: ((listener: () => Promise<void>) => void) | TestContext,
 	options?: Partial<ServerOptions>,
 ) {
+	const onTestFinished = 'onTestFinished' in t ? t.onTestFinished.bind(t) : t
+	const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'map-server-test-'))
 	const tmpCustomMapPath = path.join(
-		os.tmpdir(),
+		tmpDir,
 		`custom-map-path-${tmpCounter++}.smp`,
 	)
 	// Copy the fixture to a temp location to avoid mutations during tests
@@ -42,15 +45,18 @@ export async function startServer(
 		}
 		// customMapPath can point to a path with no file (for testing non-existent maps)
 	}
+	const keyPair = options?.keyPair ?? SecretStreamAgent.keyPair()
 	const server = createServer({
 		defaultOnlineStyleUrl: ONLINE_STYLE_URL,
 		fallbackMapPath: DEMOTILES_Z2,
 		...options,
 		customMapPath: tmpCustomMapPath,
+		keyPair,
 	})
-	t.onTestFinished(async () => {
-		// Clean up the temp custom map file
+	onTestFinished(async () => {
+		// Clean up the temp dir and close the server
 		await fs.unlink(tmpCustomMapPath).catch(noop)
+		await fs.rm(tmpDir, { recursive: true, force: true }).catch(noop)
 		await server.close()
 	})
 	const { localPort, remotePort } = await server.listen()
@@ -62,6 +68,8 @@ export async function startServer(
 		remotePort,
 		localBaseUrl: `http://127.0.0.1:${localPort}`,
 		remoteBaseUrl: `http://${nonLoopbackIPv4}:${remotePort}`,
+		keyPair,
+		customMapPath: tmpCustomMapPath,
 	}
 }
 
