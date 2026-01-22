@@ -814,6 +814,8 @@ describe('Map Shares and Downloads', () => {
 				await receiver.post(`downloads/${downloadId}/abort`)
 				// Wait for aborted event
 				await abortPromise
+
+				await delay(100) // give some time for cleanup to complete
 				// Check temp file is removed
 				{
 					const files = fs.readdirSync(receiverDir)
