@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
 import { Reader } from 'styled-map-package'
@@ -560,6 +561,8 @@ describe('Map Upload', () => {
 		// Both should succeed (one waits for the other)
 		expect(response1.status).toBe(200)
 		expect(response2.status).toBe(200)
+
+		await delay(100) // Wait a bit to ensure file write is complete
 
 		// Verify second upload's map is the one that exists
 		const styleResponse = await fetch(`${localBaseUrl}/maps/custom/style.json`)
