@@ -166,7 +166,7 @@ export class Context {
 				try {
 					await writer.abort(err)
 				} finally {
-					fsPromises.unlink(tempPath).catch(noop)
+					await fsPromises.unlink(tempPath).catch(noop)
 				}
 			},
 		})
