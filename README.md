@@ -528,7 +528,7 @@ All error responses follow this format:
 ```json
 {
 	"code": "ERROR_CODE",
-	"error": "Human-readable error message"
+	"message": "Human-readable error message"
 }
 ```
 

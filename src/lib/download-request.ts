@@ -1,10 +1,10 @@
-import { StatusError } from 'itty-router'
 import { Agent as SecretStreamAgent } from 'secret-stream-http'
 import z32 from 'z32'
 
 import { TypedEventTarget } from '../lib/event-target.js'
 import type { DownloadCreateRequest } from '../routes/downloads.js'
 import { type DownloadStateUpdate } from '../types.js'
+import { StatusError } from './errors.js'
 import { errors, jsonError } from './errors.js'
 import { secretStreamFetch } from './secret-stream-fetch.js'
 import { StateUpdateEvent } from './state-update-event.js'
