@@ -35,6 +35,7 @@ describe('Map Shares and Downloads', () => {
 			const {
 				shareId,
 				mapShareCreated,
+				// eslint-disable-next-line @typescript-eslint/no-unused-vars
 				mapCreated,
 				mapShareUrls,
 				...deterministic

@@ -140,7 +140,7 @@ export class Context {
 				const tempReader = new Reader(tempPath)
 				try {
 					await tempReader.opened()
-				} catch (err) {
+				} catch {
 					// Clean up temp file on validation failure
 					await fsPromises.unlink(tempPath).catch(noop)
 					throw new errors.INVALID_MAP_FILE()

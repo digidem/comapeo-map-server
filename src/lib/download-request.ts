@@ -87,7 +87,7 @@ export class DownloadRequest extends TypedEventTarget<
 							this.#updateState({ status: json.status, error: json.error })
 							return
 						}
-					} catch (err) {
+					} catch {
 						// Ignore errors from checking the status and update state with original error
 					}
 					this.#updateState({ status: 'error', error: jsonError(error) })
@@ -99,8 +99,6 @@ export class DownloadRequest extends TypedEventTarget<
 	async #start({
 		mapShareUrls,
 		stream,
-		remotePublicKey,
-		keyPair,
 	}: {
 		mapShareUrls: string[]
 		stream: WritableStream<Uint8Array>

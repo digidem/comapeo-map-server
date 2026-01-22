@@ -1,5 +1,4 @@
-import type { IRequestStrict, RequestLike } from 'itty-router'
-import type { Reader } from 'styled-map-package'
+import type { RequestLike } from 'itty-router'
 import { Type as T, type Static } from 'typebox'
 
 export const MapShareDeclineReason = T.Union([

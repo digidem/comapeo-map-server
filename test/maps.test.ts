@@ -655,7 +655,7 @@ describe('Error Response Format', () => {
 
 		const error = await response.json()
 		expect(error).toHaveProperty('code')
-		expect(error).toHaveProperty('error')
+		expect(error).toHaveProperty('message')
 		expect(error.code).toBe('MAP_NOT_FOUND')
 	})
 
@@ -670,21 +670,19 @@ describe('Error Response Format', () => {
 
 		const error = await response.json()
 		expect(error).toHaveProperty('code')
-		expect(error).toHaveProperty('error')
+		expect(error).toHaveProperty('message')
 		expect(error.code).toBe('INVALID_MAP_FILE')
 	})
 
 	it('should return RESOURCE_NOT_FOUND for missing tile', async (t) => {
 		const { localBaseUrl } = await startServer(t)
 		// Request a tile that doesn't exist in the map
-		const response = await fetch(
-			`${localBaseUrl}/maps/custom/99/999/999.pbf`,
-		)
+		const response = await fetch(`${localBaseUrl}/maps/custom/99/999/999.pbf`)
 		expect(response.status).toBe(404)
 
 		const error = await response.json()
 		expect(error).toHaveProperty('code')
-		expect(error).toHaveProperty('error')
+		expect(error).toHaveProperty('message')
 		expect(error.code).toBe('RESOURCE_NOT_FOUND')
 	})
 
