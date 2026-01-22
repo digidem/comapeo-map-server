@@ -250,18 +250,33 @@ describe('Map Shares and Downloads', () => {
 			// Test with one download
 			const share1 = await createShare().json()
 			const download1 = await createDownload(share1).json<any>()
+			const download1Promise = eventsUntil(
+				receiver,
+				download1.downloadId,
+				'completed',
+			)
 			const oneDownload = await receiver.get(`downloads`).json()
 			expect(oneDownload).toEqual([download1])
 
 			// Wait for first download to complete before starting second
-			await eventsUntil(receiver, download1.downloadId, 'completed')
+			await download1Promise
 
 			// Test with multiple downloads
 			const share2 = await createShare().json()
 			const download2 = await createDownload(share2).json<any>()
+			const download2Promise = eventsUntil(
+				receiver,
+				download2.downloadId,
+				'completed',
+			)
 
 			const share3 = await createShare().json()
 			const download3 = await createDownload(share3).json<any>()
+			const download3Promise = eventsUntil(
+				receiver,
+				download3.downloadId,
+				'completed',
+			)
 
 			const multipleDownloads = await receiver.get(`downloads`).json<any[]>()
 			expect(multipleDownloads).toHaveLength(3)
@@ -276,10 +291,7 @@ describe('Map Shares and Downloads', () => {
 			)
 
 			// Wait for remaining downloads to complete to clean up background connections
-			await Promise.all([
-				eventsUntil(receiver, download2.downloadId, 'completed'),
-				eventsUntil(receiver, download3.downloadId, 'completed'),
-			])
+			await Promise.all([download2Promise, download3Promise])
 		})
 
 		it('should get a specific download', async (t) => {
