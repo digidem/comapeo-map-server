@@ -546,7 +546,7 @@ describe('Map Upload', () => {
 			},
 		})
 
-		await new Promise((resolve) => setTimeout(resolve, 10))
+		await delay(10)
 
 		const upload2 = fetch(`${localBaseUrl}/maps/custom`, {
 			method: 'PUT',
