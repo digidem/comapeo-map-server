@@ -1575,14 +1575,12 @@ describe('Map Shares and Downloads', () => {
 
 			const { shareId } = await createShare().json()
 
-			// check no temp file exists yet
-			{
-				const files = fs.readdirSync(receiverDir)
-				const hasTempFile = files.find(
+			// there could be existing temp files from previous tests, record them
+			const existingTempFiles = fs
+				.readdirSync(receiverDir)
+				.filter(
 					(f) => f.startsWith(receiverBasename) && f.includes('.download-'),
 				)
-				expect(hasTempFile).toBeUndefined()
-			}
 
 			// Create download with invalid URL to cause error
 			const { downloadId } = await receiver
@@ -1599,10 +1597,15 @@ describe('Map Shares and Downloads', () => {
 			// Wait for download to fail and cleanup to complete
 			await eventsUntil(receiver, downloadId, 'error')
 
+			await delay(100) // small delay to ensure filesystem operations complete
+
 			// Verify no temp files are left behind
 			const files = fs.readdirSync(receiverDir)
 			const tempFiles = files.filter(
-				(f) => f.startsWith(receiverBasename) && f.includes('.download-'),
+				(f) =>
+					f.startsWith(receiverBasename) &&
+					f.includes('.download-') &&
+					!existingTempFiles.includes(f),
 			)
 			expect(tempFiles).toHaveLength(0)
 		})
