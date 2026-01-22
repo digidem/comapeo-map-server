@@ -784,6 +784,13 @@ describe('Map Shares and Downloads', () => {
 				const receiverDir = path.dirname(receiver.customMapPath)
 				const receiverBasename = path.basename(receiver.customMapPath)
 
+				// there could be existing temp files from previous tests, record them
+				const existingTempFiles = fs
+					.readdirSync(receiverDir)
+					.filter(
+						(f) => f.startsWith(receiverBasename) && f.includes('.download-'),
+					)
+
 				const share = await createShare().json()
 				const { downloadId } = await createDownload(share).json<any>()
 
@@ -794,7 +801,10 @@ describe('Map Shares and Downloads', () => {
 				{
 					const files = fs.readdirSync(receiverDir)
 					const hasTempFile = files.find(
-						(f) => f.startsWith(receiverBasename) && f.includes('.download-'),
+						(f) =>
+							f.startsWith(receiverBasename) &&
+							f.includes('.download-') &&
+							!existingTempFiles.includes(f),
 					)
 					expect(hasTempFile).toBeDefined()
 				}
@@ -808,7 +818,10 @@ describe('Map Shares and Downloads', () => {
 				{
 					const files = fs.readdirSync(receiverDir)
 					const hasTempFile = files.find(
-						(f) => f.startsWith(receiverBasename) && f.includes('.download-'),
+						(f) =>
+							f.startsWith(receiverBasename) &&
+							f.includes('.download-') &&
+							!existingTempFiles.includes(f),
 					)
 					expect(hasTempFile).toBeUndefined()
 				}
