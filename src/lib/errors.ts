@@ -90,7 +90,7 @@ const errorsList = [
 	},
 	{
 		code: 'RESOURCE_NOT_FOUND',
-		error: 'Resource not found',
+		message: 'Resource not found',
 		status: 404,
 	},
 	{
