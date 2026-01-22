@@ -546,7 +546,7 @@ describe('Map Upload', () => {
 			},
 		})
 
-		await delay(10)
+		await delay(50)
 
 		const upload2 = fetch(`${localBaseUrl}/maps/custom`, {
 			method: 'PUT',
