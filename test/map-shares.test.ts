@@ -393,7 +393,7 @@ describe('Map Shares and Downloads', () => {
 
 				// Attempt to start download
 				const { downloadId } = await createDownload(share).json<any>()
-				await delay(10) // Wait a bit for cancellation to propagate
+				await eventsUntil(receiver, downloadId, 'canceled')
 
 				const download = await receiver.get(`downloads/${downloadId}`).json()
 				expect(download).toHaveProperty('status', 'canceled')
