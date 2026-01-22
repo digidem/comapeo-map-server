@@ -658,13 +658,13 @@ describe('Map Shares and Downloads', () => {
 				const share = await createShare().json()
 				const { downloadId } = await createDownload(share).json<any>()
 
+				const abortPromise = eventsUntil(receiver, downloadId, 'aborted')
 				// Abort the download immediately
-				const cancelResponse = await receiver.post(
+				const abortResponse = await receiver.post(
 					`downloads/${downloadId}/abort`,
 				)
-				expect(cancelResponse.status).toBe(204)
-
-				await delay(10) // Wait a bit for cancellation to propagate
+				expect(abortResponse.status).toBe(204)
+				await abortPromise
 
 				const mapShare = await sender.get(`mapShares/${share.shareId}`).json()
 				expect(mapShare).toHaveProperty('status', 'aborted')
@@ -704,13 +704,12 @@ describe('Map Shares and Downloads', () => {
 
 				await eventsUntil(receiver, downloadId, downloadStarted)
 
-				const cancelResponse = await receiver.post(
+				const abortPromise = eventsUntil(receiver, downloadId, 'aborted')
+				const abortResponse = await receiver.post(
 					`downloads/${downloadId}/abort`,
 				)
-				expect(cancelResponse.status).toBe(204)
-
-				await delay(10) // Wait a bit for cancellation to propagate
-
+				expect(abortResponse.status).toBe(204)
+				await abortPromise
 				const mapShare = await sender.get(`mapShares/${share.shareId}`).json()
 				expect(mapShare).toHaveProperty('status', 'aborted')
 
@@ -734,11 +733,11 @@ describe('Map Shares and Downloads', () => {
 				// Wait for download to complete
 				await eventsUntil(receiver, downloadId, 'completed')
 				// Attempt to abort
-				const cancelResponse = await receiver.post(
+				const abortResponse = await receiver.post(
 					`downloads/${downloadId}/abort`,
 				)
-				expect(cancelResponse.status).toBe(409)
-				const body = await cancelResponse.json()
+				expect(abortResponse.status).toBe(409)
+				const body = await abortResponse.json()
 				expect(body).toHaveProperty('code', 'ABORT_NOT_DOWNLOADING')
 				expect(body).toHaveProperty('message')
 			})
@@ -765,11 +764,11 @@ describe('Map Shares and Downloads', () => {
 				// Wait for download to start
 				await eventsUntil(receiver, downloadId, downloadStarted)
 
-				const abortedPromise = eventsUntil(receiver, downloadId, 'aborted')
+				const abortPromise = eventsUntil(receiver, downloadId, 'aborted')
 				// Abort the download
 				await receiver.post(`downloads/${downloadId}/abort`)
 				// Wait for aborted event
-				await abortedPromise
+				await abortPromise
 				es.close()
 
 				// Verify the original map is still accessible and unchanged
@@ -800,12 +799,11 @@ describe('Map Shares and Downloads', () => {
 					expect(hasTempFile).toBeDefined()
 				}
 
-				const abortedPromise = eventsUntil(receiver, downloadId, 'aborted')
+				const abortPromise = eventsUntil(receiver, downloadId, 'aborted')
 				// Abort the download to trigger cleanup
 				await receiver.post(`downloads/${downloadId}/abort`)
 				// Wait for aborted event
-				await abortedPromise
-
+				await abortPromise
 				// Check temp file is removed
 				{
 					const files = fs.readdirSync(receiverDir)
