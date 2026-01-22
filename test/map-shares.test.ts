@@ -1757,18 +1757,34 @@ async function eventsUntilEs(
 
 /**
  * Wait for events until a condition is met, automatically creating and closing the EventSourceClient.
+ *
+ * Uses the onMessage callback API instead of the async iterator to avoid a race
+ * condition where the first message can be lost if it arrives before the async
+ * iterator subscriber is registered.
  */
 async function eventsUntil(
 	instance: ServerInstance,
 	id: string,
 	statusOrCondition: string | ((msg: EventSourceMessage) => boolean),
 ): Promise<any[]> {
-	const es = createEventSource(
-		`${instance.localBaseUrl}${instance.eventsPath(id)}`,
-	)
-	try {
-		return await eventsUntilEs(es, statusOrCondition)
-	} finally {
-		es.close()
-	}
+	const events: any[] = []
+	const condition =
+		typeof statusOrCondition === 'string'
+			? (msg: EventSourceMessage) =>
+					JSON.parse(msg.data).status === statusOrCondition
+			: statusOrCondition
+
+	return new Promise((resolve) => {
+		const es = createEventSource({
+			url: `${instance.localBaseUrl}${instance.eventsPath(id)}`,
+			onMessage: (msg) => {
+				const event = JSON.parse(msg.data)
+				events.push(event)
+				if (condition(msg)) {
+					es.close()
+					resolve(events)
+				}
+			},
+		})
+	})
 }
