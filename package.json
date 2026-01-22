@@ -33,6 +33,7 @@
     "eventsource-client": "^1.2.0",
     "globals": "^16.5.0",
     "husky": "^9.1.7",
+    "ky": "1.7.5",
     "lint-staged": "^16.2.7",
     "msw": "^2.12.4",
     "patch-package": "^8.0.1",
