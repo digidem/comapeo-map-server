@@ -10,7 +10,7 @@
 	},
 	"scripts": {
 		"test": "run-p test:*",
-		"test:js": "vitest run --coverage",
+		"test:js": "vitest run",
 		"test:lint": "eslint",
 		"test:types": "tsc --noEmit",
 		"format": "prettier --write .",
