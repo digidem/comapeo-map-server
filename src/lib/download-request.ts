@@ -2,7 +2,7 @@ import { Agent as SecretStreamAgent } from 'secret-stream-http'
 import z32 from 'z32'
 
 import { TypedEventTarget } from '../lib/event-target.js'
-import type { DownloadCreateRequest } from '../routes/downloads.js'
+import type { DownloadCreateParams } from '../routes/downloads.js'
 import { type DownloadStateUpdate } from '../types.js'
 import { StatusError } from './errors.js'
 import { errors, jsonError } from './errors.js'
@@ -10,13 +10,13 @@ import { secretStreamFetch } from './secret-stream-fetch.js'
 import { StateUpdateEvent } from './state-update-event.js'
 import { addTrailingSlash, generateId, getErrorCode, noop } from './utils.js'
 
-type DownloadRequestState = DownloadStateUpdate &
-	Omit<DownloadCreateRequest, 'mapShareUrls'> & { downloadId: string }
+export type DownloadState = DownloadStateUpdate &
+	Omit<DownloadCreateParams, 'mapShareUrls'> & { downloadId: string }
 
 export class DownloadRequest extends TypedEventTarget<
 	InstanceType<typeof StateUpdateEvent<DownloadStateUpdate>>
 > {
-	#state: DownloadRequestState
+	#state: DownloadState
 	#abortController = new AbortController()
 	#transform = new TransformStream({
 		transform: (chunk, controller) => {
@@ -34,7 +34,7 @@ export class DownloadRequest extends TypedEventTarget<
 
 	constructor(
 		stream: WritableStream<Uint8Array>,
-		{ mapShareUrls, ...rest }: DownloadCreateRequest,
+		{ mapShareUrls, ...rest }: DownloadCreateParams,
 		keyPair: { publicKey: Uint8Array; secretKey: Uint8Array },
 	) {
 		super()

@@ -16,6 +16,21 @@ import { fetchAPI } from './lib/fetch-api.js'
 import { RootRouter } from './routes/root.js'
 import type { FetchContext } from './types.js'
 
+export { errors } from './lib/errors.js'
+
+export type {
+	MapInfo,
+	MapShareState,
+	MapShareStateUpdate,
+	DownloadStateUpdate,
+} from './types.js'
+export type { DownloadState } from './lib/download-request.js'
+export type {
+	MapShareCreateParams,
+	MapShareDeclineParams,
+} from './routes/map-shares.js'
+export type { DownloadCreateParams } from './routes/downloads.js'
+
 export type ServerOptions = {
 	defaultOnlineStyleUrl: string | URL
 	customMapPath: string | URL
