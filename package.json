@@ -15,10 +15,9 @@
 		"test:types": "tsc --noEmit",
 		"test:publint": "publint",
 		"format": "prettier --write .",
-		"prepare": "husky",
+		"prepare": "husky && patch-package",
 		"build": "tsc -p tsconfig.npm.json",
-		"prepack": "run-s test build",
-		"postinstall": "patch-package"
+		"prepack": "run-s test build"
 	},
 	"keywords": [],
 	"author": "",
