@@ -1,9 +1,4 @@
-import {
-	IRequestStrict,
-	IttyRouter,
-	StatusError,
-	type RequestHandler,
-} from 'itty-router'
+import { IRequestStrict, IttyRouter, type RequestHandler } from 'itty-router'
 import { createServer as createSmpServer } from 'styled-map-package/server'
 
 import type { Context } from '../context.js'
@@ -44,7 +39,7 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 	const uploadHandler: RequestHandler<MapRequest> = async (request) => {
 		const writable = ctx.createMapWritableStream(request.params.mapId)
 		if (!request.body) {
-			throw new StatusError(400, 'Invalid Request')
+			throw new errors.INVALID_REQUEST('Request body is required')
 		}
 		await request.body.pipeTo(writable)
 	}
@@ -55,7 +50,7 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 			throw new errors.MAP_NOT_FOUND(`Map not found: ${request.params.mapId}`)
 		}
 		if (!request.body) {
-			throw new StatusError(400, 'Invalid Request')
+			throw new errors.INVALID_REQUEST('Request body is required')
 		}
 		await activeUploads.get(request.params.mapId)?.catch(noop)
 		const uploadPromise = uploadHandler(request)

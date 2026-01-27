@@ -1,0 +1,19 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Map Shares and Downloads > Map Shares > should create a map share 1`] = `
+{
+  "bounds": [
+    5.625,
+    45.08903556483103,
+    16.875,
+    48.922499263758255,
+  ],
+  "estimatedSizeBytes": 1579429,
+  "mapId": "custom",
+  "mapName": "OSM Bright",
+  "maxzoom": 6,
+  "minzoom": 0,
+  "receiverDeviceId": "tkrq8zmwb8a3m9k15csu3q17qmfgqnp9dskbrg9uq1rydpyxp7qy",
+  "status": "pending",
+}
+`;

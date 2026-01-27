@@ -102,6 +102,15 @@ export class Context {
 		this.#mapReaders.set(mapId, Promise.resolve(reader))
 		return Promise.resolve(reader)
 	}
+	createMapReadableStream(mapId: string) {
+		const mapFileUrl = this.#mapFileUrls.get(mapId)
+		if (!mapFileUrl) {
+			throw new errors.MAP_NOT_FOUND(`Map ID not found: ${mapId}`)
+		}
+		return Readable.toWeb(
+			fs.createReadStream(mapFileUrl),
+		) as ReadableStream<Uint8Array> // small discrepancy in types
+	}
 	/**
 	 * Creates a writable stream to write map data to the specified map ID.
 	 * The data is first written to a temporary file, and once the stream is closed,

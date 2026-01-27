@@ -1,4 +1,8 @@
+import crypto from 'node:crypto'
+
+import { randomBytes } from 'crypto'
 import type { SMPStyle } from 'styled-map-package'
+import z32 from 'z32'
 
 import type { BBox } from '../types.js'
 
@@ -27,6 +31,27 @@ export function getErrorCode(maybeError: unknown) {
 }
 
 export function noop() {}
+
+export function generateId() {
+	return z32.encode(randomBytes(8))
+}
+
+export function getOrInsert<K, V>(map: Map<K, V>, key: K, value: V): V {
+	if (map.has(key)) {
+		return map.get(key)!
+	}
+	map.set(key, value)
+	return value
+}
+
+export function timingSafeEqual(a: string, b: string): boolean {
+	const aBuf = Buffer.from(a)
+	const bBuf = Buffer.from(b)
+	if (aBuf.length !== bBuf.length) {
+		return false
+	}
+	return crypto.timingSafeEqual(aBuf, bBuf)
+}
 
 /**
  * Returns a bbox that is the smallest bounding box that contains all the input bboxes.
