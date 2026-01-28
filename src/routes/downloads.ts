@@ -26,7 +26,7 @@ const DownloadCreateRequest = T.Object({
 	estimatedSizeBytes: EstimatedSizeBytes,
 })
 
-export type DownloadCreateRequest = Static<typeof DownloadCreateRequest>
+export type DownloadCreateParams = Static<typeof DownloadCreateRequest>
 
 export function DownloadsRouter(
 	{ base }: { base: string },

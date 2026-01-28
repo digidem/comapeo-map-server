@@ -30,6 +30,8 @@ const MapShareCreateRequest = T.Object({
 	receiverDeviceId: T.String({ minLength: 1 }),
 })
 
+export type MapShareCreateParams = Static<typeof MapShareCreateRequest>
+
 const LocalMapShareDeclineRequest = T.Object({
 	reason: MapShareDeclineReason,
 	mapShareUrls: MapShareUrls,
@@ -38,6 +40,8 @@ const LocalMapShareDeclineRequest = T.Object({
 		description: 'The ID of the device that is sending the map share',
 	}),
 })
+
+export type MapShareDeclineParams = Static<typeof LocalMapShareDeclineRequest>
 
 const RemoteMapShareDeclineRequest = T.Object({
 	reason: MapShareDeclineReason,
