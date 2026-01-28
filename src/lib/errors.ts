@@ -89,6 +89,11 @@ const errorsList = [
 		status: 404,
 	},
 	{
+		code: 'RESOURCE_NOT_FOUND',
+		message: 'Resource not found',
+		status: 404,
+	},
+	{
 		code: 'INVALID_MAP_FILE',
 		message: 'Invalid map file',
 		status: 400,

@@ -28,6 +28,7 @@ export function createEventStreamResponse(
 				encoder.encode(`data: ${JSON.stringify(eventTarget.state)}\n\n`),
 			)
 			listener = (event) => {
+				// eslint-disable-next-line @typescript-eslint/no-unused-vars
 				const { type, ...update } = event
 				controller.enqueue(
 					encoder.encode(`data: ${JSON.stringify(update)}\n\n`),
@@ -37,7 +38,9 @@ export function createEventStreamResponse(
 		},
 		cancel() {
 			signal.removeEventListener('abort', onAbort)
-			listener && eventTarget.removeEventListener('update', listener)
+			if (listener) {
+				eventTarget.removeEventListener('update', listener)
+			}
 		},
 	})
 	const onAbort = () => {

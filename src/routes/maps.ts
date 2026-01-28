@@ -1,4 +1,5 @@
 import { IRequestStrict, IttyRouter, type RequestHandler } from 'itty-router'
+import Mutex from 'p-mutex'
 import { createServer as createSmpServer } from 'styled-map-package/server'
 
 import type { Context } from '../context.js'
@@ -8,7 +9,6 @@ import {
 	FALLBACK_MAP_ID,
 } from '../lib/constants.js'
 import { errors } from '../lib/errors.js'
-import { SelfEvictingPromiseMap } from '../lib/self-evicting-map.js'
 import { addTrailingSlash, noop } from '../lib/utils.js'
 
 type MapRequest = IRequestStrict & {
@@ -19,7 +19,7 @@ type MapRequest = IRequestStrict & {
 
 export function MapsRouter({ base = '/' }, ctx: Context) {
 	base = addTrailingSlash(base)
-	const activeUploads = new SelfEvictingPromiseMap<string, Promise<void>>()
+	const uploadMutexes = new Map<string, Mutex>()
 
 	const smpServer = createSmpServer({
 		base: `${base}:mapId/`,
@@ -46,27 +46,48 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 
 	router.put<MapRequest>('/:mapId', async (request) => {
 		// Only allow uploading to the custom map ID for now
-		if (request.params.mapId !== CUSTOM_MAP_ID) {
+		if (
+			request.params.mapId === DEFAULT_MAP_ID ||
+			request.params.mapId === FALLBACK_MAP_ID
+		) {
+			throw new errors.FORBIDDEN(
+				`Uploading to map ID "${request.params.mapId}" is not allowed`,
+			)
+		} else if (request.params.mapId !== CUSTOM_MAP_ID) {
 			throw new errors.MAP_NOT_FOUND(`Map not found: ${request.params.mapId}`)
 		}
 		if (!request.body) {
 			throw new errors.INVALID_REQUEST('Request body is required')
 		}
-		await activeUploads.get(request.params.mapId)?.catch(noop)
-		const uploadPromise = uploadHandler(request)
-		activeUploads.set(request.params.mapId, uploadPromise)
-		await uploadPromise
+		// Get or create a mutex for this mapId to ensure sequential uploads
+		let mutex = uploadMutexes.get(request.params.mapId)
+		if (!mutex) {
+			mutex = new Mutex()
+			uploadMutexes.set(request.params.mapId, mutex)
+		}
+		await mutex.withLock(() => uploadHandler(request))
 		return new Response(null, { status: 200 })
 	})
 
 	router.delete<MapRequest>('/:mapId', async (request) => {
 		// Only allow deleting the custom map ID
-		if (request.params.mapId !== CUSTOM_MAP_ID) {
+		if (
+			request.params.mapId === DEFAULT_MAP_ID ||
+			request.params.mapId === FALLBACK_MAP_ID
+		) {
+			throw new errors.FORBIDDEN(
+				`Deleting the map ID "${request.params.mapId}" is not allowed`,
+			)
+		} else if (request.params.mapId !== CUSTOM_MAP_ID) {
 			throw new errors.MAP_NOT_FOUND(`Map not found: ${request.params.mapId}`)
 		}
-		// Wait for any active uploads to complete before deleting
-		await activeUploads.get(request.params.mapId)?.catch(noop)
-		await ctx.deleteMap(request.params.mapId)
+		// Use mutex to wait for any active uploads to complete before deleting
+		let mutex = uploadMutexes.get(request.params.mapId)
+		if (!mutex) {
+			mutex = new Mutex()
+			uploadMutexes.set(request.params.mapId, mutex)
+		}
+		await mutex.withLock(() => ctx.deleteMap(request.params.mapId))
 		return new Response(null, { status: 204 })
 	})
 
@@ -74,7 +95,17 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 		if (request.params.mapId === DEFAULT_MAP_ID) {
 			return defaultMapHandler(request)
 		}
-		return smpServer.fetch(request, await ctx.getReader(request.params.mapId))
+		// Get the reader first - this throws MAP_NOT_FOUND for unknown map IDs
+		const reader = await ctx.getReader(request.params.mapId)
+		try {
+			return await smpServer.fetch(request, reader)
+		} catch (err) {
+			// Convert generic 404 from smpServer to RESOURCE_NOT_FOUND
+			if (err instanceof Error && 'status' in err && err.status === 404) {
+				throw new errors.RESOURCE_NOT_FOUND()
+			}
+			throw err
+		}
 	})
 
 	// Special handler for the default map ID that tries to serve a custom map

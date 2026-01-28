@@ -35,6 +35,7 @@ describe('Map Shares and Downloads', () => {
 			const {
 				shareId,
 				mapShareCreated,
+				// eslint-disable-next-line @typescript-eslint/no-unused-vars
 				mapCreated,
 				mapShareUrls,
 				...deterministic
@@ -249,18 +250,33 @@ describe('Map Shares and Downloads', () => {
 			// Test with one download
 			const share1 = await createShare().json()
 			const download1 = await createDownload(share1).json<any>()
+			const download1Promise = eventsUntil(
+				receiver,
+				download1.downloadId,
+				'completed',
+			)
 			const oneDownload = await receiver.get(`downloads`).json()
 			expect(oneDownload).toEqual([download1])
 
 			// Wait for first download to complete before starting second
-			await eventsUntil(receiver, download1.downloadId, 'completed')
+			await download1Promise
 
 			// Test with multiple downloads
 			const share2 = await createShare().json()
 			const download2 = await createDownload(share2).json<any>()
+			const download2Promise = eventsUntil(
+				receiver,
+				download2.downloadId,
+				'completed',
+			)
 
 			const share3 = await createShare().json()
 			const download3 = await createDownload(share3).json<any>()
+			const download3Promise = eventsUntil(
+				receiver,
+				download3.downloadId,
+				'completed',
+			)
 
 			const multipleDownloads = await receiver.get(`downloads`).json<any[]>()
 			expect(multipleDownloads).toHaveLength(3)
@@ -275,10 +291,7 @@ describe('Map Shares and Downloads', () => {
 			)
 
 			// Wait for remaining downloads to complete to clean up background connections
-			await Promise.all([
-				eventsUntil(receiver, download2.downloadId, 'completed'),
-				eventsUntil(receiver, download3.downloadId, 'completed'),
-			])
+			await Promise.all([download2Promise, download3Promise])
 		})
 
 		it('should get a specific download', async (t) => {
@@ -392,7 +405,7 @@ describe('Map Shares and Downloads', () => {
 
 				// Attempt to start download
 				const { downloadId } = await createDownload(share).json<any>()
-				await delay(10) // Wait a bit for cancellation to propagate
+				await eventsUntil(receiver, downloadId, 'canceled')
 
 				const download = await receiver.get(`downloads/${downloadId}`).json()
 				expect(download).toHaveProperty('status', 'canceled')
@@ -657,13 +670,13 @@ describe('Map Shares and Downloads', () => {
 				const share = await createShare().json()
 				const { downloadId } = await createDownload(share).json<any>()
 
+				const abortPromise = eventsUntil(receiver, downloadId, 'aborted')
 				// Abort the download immediately
-				const cancelResponse = await receiver.post(
+				const abortResponse = await receiver.post(
 					`downloads/${downloadId}/abort`,
 				)
-				expect(cancelResponse.status).toBe(204)
-
-				await delay(10) // Wait a bit for cancellation to propagate
+				expect(abortResponse.status).toBe(204)
+				await abortPromise
 
 				const mapShare = await sender.get(`mapShares/${share.shareId}`).json()
 				expect(mapShare).toHaveProperty('status', 'aborted')
@@ -703,13 +716,12 @@ describe('Map Shares and Downloads', () => {
 
 				await eventsUntil(receiver, downloadId, downloadStarted)
 
-				const cancelResponse = await receiver.post(
+				const abortPromise = eventsUntil(receiver, downloadId, 'aborted')
+				const abortResponse = await receiver.post(
 					`downloads/${downloadId}/abort`,
 				)
-				expect(cancelResponse.status).toBe(204)
-
-				await delay(10) // Wait a bit for cancellation to propagate
-
+				expect(abortResponse.status).toBe(204)
+				await abortPromise
 				const mapShare = await sender.get(`mapShares/${share.shareId}`).json()
 				expect(mapShare).toHaveProperty('status', 'aborted')
 
@@ -733,11 +745,11 @@ describe('Map Shares and Downloads', () => {
 				// Wait for download to complete
 				await eventsUntil(receiver, downloadId, 'completed')
 				// Attempt to abort
-				const cancelResponse = await receiver.post(
+				const abortResponse = await receiver.post(
 					`downloads/${downloadId}/abort`,
 				)
-				expect(cancelResponse.status).toBe(409)
-				const body = await cancelResponse.json()
+				expect(abortResponse.status).toBe(409)
+				const body = await abortResponse.json()
 				expect(body).toHaveProperty('code', 'ABORT_NOT_DOWNLOADING')
 				expect(body).toHaveProperty('message')
 			})
@@ -764,11 +776,11 @@ describe('Map Shares and Downloads', () => {
 				// Wait for download to start
 				await eventsUntil(receiver, downloadId, downloadStarted)
 
-				const abortedPromise = eventsUntil(receiver, downloadId, 'aborted')
+				const abortPromise = eventsUntil(receiver, downloadId, 'aborted')
 				// Abort the download
 				await receiver.post(`downloads/${downloadId}/abort`)
 				// Wait for aborted event
-				await abortedPromise
+				await abortPromise
 				es.close()
 
 				// Verify the original map is still accessible and unchanged
@@ -784,6 +796,13 @@ describe('Map Shares and Downloads', () => {
 				const receiverDir = path.dirname(receiver.customMapPath)
 				const receiverBasename = path.basename(receiver.customMapPath)
 
+				// there could be existing temp files from previous tests, record them
+				const existingTempFiles = fs
+					.readdirSync(receiverDir)
+					.filter(
+						(f) => f.startsWith(receiverBasename) && f.includes('.download-'),
+					)
+
 				const share = await createShare().json()
 				const { downloadId } = await createDownload(share).json<any>()
 
@@ -794,22 +813,29 @@ describe('Map Shares and Downloads', () => {
 				{
 					const files = fs.readdirSync(receiverDir)
 					const hasTempFile = files.find(
-						(f) => f.startsWith(receiverBasename) && f.includes('.download-'),
+						(f) =>
+							f.startsWith(receiverBasename) &&
+							f.includes('.download-') &&
+							!existingTempFiles.includes(f),
 					)
 					expect(hasTempFile).toBeDefined()
 				}
 
-				const abortedPromise = eventsUntil(receiver, downloadId, 'aborted')
+				const abortPromise = eventsUntil(receiver, downloadId, 'aborted')
 				// Abort the download to trigger cleanup
 				await receiver.post(`downloads/${downloadId}/abort`)
 				// Wait for aborted event
-				await abortedPromise
+				await abortPromise
 
+				await delay(100) // give some time for cleanup to complete
 				// Check temp file is removed
 				{
 					const files = fs.readdirSync(receiverDir)
 					const hasTempFile = files.find(
-						(f) => f.startsWith(receiverBasename) && f.includes('.download-'),
+						(f) =>
+							f.startsWith(receiverBasename) &&
+							f.includes('.download-') &&
+							!existingTempFiles.includes(f),
 					)
 					expect(hasTempFile).toBeUndefined()
 				}
@@ -1504,7 +1530,7 @@ describe('Map Shares and Downloads', () => {
 		describe('Map Upload/Delete Validation', () => {
 			it('should reject PUT to non-custom map', async (t) => {
 				const { sender } = await startServers(t)
-				const response = await sender.put('maps/default', {
+				const response = await sender.put('maps/someotherid', {
 					body: 'some data',
 				})
 
@@ -1529,7 +1555,7 @@ describe('Map Shares and Downloads', () => {
 
 			it('should reject DELETE of non-custom map', async (t) => {
 				const { sender } = await startServers(t)
-				const response = await sender.delete('maps/default')
+				const response = await sender.delete('maps/someotherid')
 
 				expect(response.status).toBe(404)
 				const body = await response.json()
@@ -1574,14 +1600,12 @@ describe('Map Shares and Downloads', () => {
 
 			const { shareId } = await createShare().json()
 
-			// check no temp file exists yet
-			{
-				const files = fs.readdirSync(receiverDir)
-				const hasTempFile = files.find(
+			// there could be existing temp files from previous tests, record them
+			const existingTempFiles = fs
+				.readdirSync(receiverDir)
+				.filter(
 					(f) => f.startsWith(receiverBasename) && f.includes('.download-'),
 				)
-				expect(hasTempFile).toBeUndefined()
-			}
 
 			// Create download with invalid URL to cause error
 			const { downloadId } = await receiver
@@ -1598,10 +1622,15 @@ describe('Map Shares and Downloads', () => {
 			// Wait for download to fail and cleanup to complete
 			await eventsUntil(receiver, downloadId, 'error')
 
+			await delay(100) // small delay to ensure filesystem operations complete
+
 			// Verify no temp files are left behind
 			const files = fs.readdirSync(receiverDir)
 			const tempFiles = files.filter(
-				(f) => f.startsWith(receiverBasename) && f.includes('.download-'),
+				(f) =>
+					f.startsWith(receiverBasename) &&
+					f.includes('.download-') &&
+					!existingTempFiles.includes(f),
 			)
 			expect(tempFiles).toHaveLength(0)
 		})
@@ -1728,18 +1757,34 @@ async function eventsUntilEs(
 
 /**
  * Wait for events until a condition is met, automatically creating and closing the EventSourceClient.
+ *
+ * Uses the onMessage callback API instead of the async iterator to avoid a race
+ * condition where the first message can be lost if it arrives before the async
+ * iterator subscriber is registered.
  */
 async function eventsUntil(
 	instance: ServerInstance,
 	id: string,
 	statusOrCondition: string | ((msg: EventSourceMessage) => boolean),
 ): Promise<any[]> {
-	const es = createEventSource(
-		`${instance.localBaseUrl}${instance.eventsPath(id)}`,
-	)
-	try {
-		return await eventsUntilEs(es, statusOrCondition)
-	} finally {
-		es.close()
-	}
+	const events: any[] = []
+	const condition =
+		typeof statusOrCondition === 'string'
+			? (msg: EventSourceMessage) =>
+					JSON.parse(msg.data).status === statusOrCondition
+			: statusOrCondition
+
+	return new Promise((resolve) => {
+		const es = createEventSource({
+			url: `${instance.localBaseUrl}${instance.eventsPath(id)}`,
+			onMessage: (msg) => {
+				const event = JSON.parse(msg.data)
+				events.push(event)
+				if (condition(msg)) {
+					es.close()
+					resolve(events)
+				}
+			},
+		})
+	})
 }

@@ -61,7 +61,7 @@ export class DownloadRequest extends TypedEventTarget<
 		this.#start({ mapShareUrls, stream, remotePublicKey, keyPair }).catch(
 			async (error) => {
 				// In case the error happens before we pipe to the stream, we need to abort the stream
-				stream.abort().catch(noop)
+				await stream.abort().catch(noop)
 				if (error.name === 'AbortError') {
 					this.#updateState({ status: 'aborted' })
 				} else if (getErrorCode(error) === 'DOWNLOAD_SHARE_CANCELED') {
@@ -87,7 +87,7 @@ export class DownloadRequest extends TypedEventTarget<
 							this.#updateState({ status: json.status, error: json.error })
 							return
 						}
-					} catch (err) {
+					} catch {
 						// Ignore errors from checking the status and update state with original error
 					}
 					this.#updateState({ status: 'error', error: jsonError(error) })
@@ -99,8 +99,6 @@ export class DownloadRequest extends TypedEventTarget<
 	async #start({
 		mapShareUrls,
 		stream,
-		remotePublicKey,
-		keyPair,
 	}: {
 		mapShareUrls: string[]
 		stream: WritableStream<Uint8Array>

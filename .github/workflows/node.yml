@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 jobs:
   test:
@@ -13,6 +12,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         node-version: [18.x, 20.x, 22.x, 24.x]
+        exclude:
+          # Node 18 is EOL, but we test it on linux because we still run nodejs-mobile v18
+          # Node 18 on Windows was causing issues in our tests, and we don't run node 18 on windows anywhere
+          - os: macos-latest
+            node-version: 18.x
+          - os: windows-latest
+            node-version: 18.x
 
     runs-on: ${{ matrix.os }}
 
@@ -30,3 +36,8 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}

@@ -534,10 +534,11 @@ All error responses follow this format:
 
 ### Map Errors
 
-| Code               | Status | Description                               |
-| ------------------ | ------ | ----------------------------------------- |
-| `MAP_NOT_FOUND`    | 404    | The requested map does not exist          |
-| `INVALID_MAP_FILE` | 400    | The uploaded file is not a valid SMP file |
+| Code                 | Status | Description                                                              |
+| -------------------- | ------ | ------------------------------------------------------------------------ |
+| `MAP_NOT_FOUND`      | 404    | The requested map does not exist                                         |
+| `RESOURCE_NOT_FOUND` | 404    | The map exists but the requested resource (tile, sprite, glyph) does not |
+| `INVALID_MAP_FILE`   | 400    | The uploaded file is not a valid SMP file                                |
 
 ### Map Share Errors (Sender-side)
 

@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
 import { Reader } from 'styled-map-package'
@@ -333,6 +334,41 @@ describe('Fallback Map Fallback', () => {
 	})
 })
 
+describe('Map Delete', () => {
+	it('should delete custom map and return 204', async (t) => {
+		const { localBaseUrl } = await startServer(t)
+
+		// Verify custom map exists
+		const beforeResponse = await fetch(`${localBaseUrl}/maps/custom/style.json`)
+		expect(beforeResponse.status).toBe(200)
+
+		// Delete the custom map
+		const deleteResponse = await fetch(`${localBaseUrl}/maps/custom`, {
+			method: 'DELETE',
+		})
+		expect(deleteResponse.status).toBe(204)
+
+		// Verify it no longer exists
+		const afterResponse = await fetch(`${localBaseUrl}/maps/custom/style.json`)
+		expect(afterResponse.status).toBe(404)
+	})
+
+	it('should return 404 when deleting nonexistent custom map', async (t) => {
+		const nonExistentPath = path.join(
+			os.tmpdir(),
+			`nonexistent-map-${randomBytes(8).toString('hex')}.smp`,
+		)
+		const { localBaseUrl } = await startServer(t, {
+			customMapPath: nonExistentPath,
+		})
+
+		const response = await fetch(`${localBaseUrl}/maps/custom`, {
+			method: 'DELETE',
+		})
+		expect(response.status).toBe(404)
+	})
+})
+
 describe('Map Upload', () => {
 	const nonExistentPath = path.join(
 		os.tmpdir(),
@@ -414,20 +450,34 @@ describe('Map Upload', () => {
 		expect(style2).toEqual(expectedStyle)
 	})
 
-	it('should return 404 when trying to delete fallback map', async (t) => {
+	it('should return 403 FORBIDDEN when trying to delete fallback map', async (t) => {
 		const { localBaseUrl } = await startServer(t)
 		const response = await fetch(`${localBaseUrl}/maps/fallback`, {
 			method: 'DELETE',
 		})
-		expect(response.status).toBe(404)
+		expect(response.status).toBe(403)
+		const error = await response.json()
+		expect(error.code).toBe('FORBIDDEN')
 	})
 
-	it('should return 404 when trying to delete default map', async (t) => {
+	it('should return 403 FORBIDDEN when trying to delete default map', async (t) => {
 		const { localBaseUrl } = await startServer(t)
 		const response = await fetch(`${localBaseUrl}/maps/default`, {
 			method: 'DELETE',
 		})
+		expect(response.status).toBe(403)
+		const error = await response.json()
+		expect(error.code).toBe('FORBIDDEN')
+	})
+
+	it('should return 404 when trying to delete arbitrary mapId', async (t) => {
+		const { localBaseUrl } = await startServer(t)
+		const response = await fetch(`${localBaseUrl}/maps/someotherid`, {
+			method: 'DELETE',
+		})
 		expect(response.status).toBe(404)
+		const error = await response.json()
+		expect(error.code).toBe('MAP_NOT_FOUND')
 	})
 
 	it('should upload custom map again after deletion', async (t) => {
@@ -496,7 +546,7 @@ describe('Map Upload', () => {
 			},
 		})
 
-		await new Promise((resolve) => setTimeout(resolve, 10))
+		await delay(50)
 
 		const upload2 = fetch(`${localBaseUrl}/maps/custom`, {
 			method: 'PUT',
@@ -511,6 +561,8 @@ describe('Map Upload', () => {
 		// Both should succeed (one waits for the other)
 		expect(response1.status).toBe(200)
 		expect(response2.status).toBe(200)
+
+		await delay(100) // Wait a bit to ensure file write is complete
 
 		// Verify second upload's map is the one that exists
 		const styleResponse = await fetch(`${localBaseUrl}/maps/custom/style.json`)
@@ -530,6 +582,7 @@ describe('Invalid Map Uploads', () => {
 
 		expect(response.status).toBe(400)
 	})
+
 	it('should reject invalid map file upload', async (t) => {
 		const { localBaseUrl } = await startServer(t)
 		const invalidBuffer = Buffer.from('this is not a valid styled map package')
@@ -543,5 +596,124 @@ describe('Invalid Map Uploads', () => {
 		})
 
 		expect(response.status).toBe(400)
+	})
+
+	it('should return 403 FORBIDDEN when uploading to fallback mapId', async (t) => {
+		const { localBaseUrl } = await startServer(t)
+		const fileBuffer = fs.readFileSync(DEMOTILES_Z2)
+
+		const response = await fetch(`${localBaseUrl}/maps/fallback`, {
+			method: 'PUT',
+			body: fileBuffer,
+			headers: {
+				'Content-Type': 'application/octet-stream',
+			},
+		})
+
+		expect(response.status).toBe(403)
+		const error = await response.json()
+		expect(error.code).toBe('FORBIDDEN')
+	})
+
+	it('should return 403 FORBIDDEN when uploading to default mapId', async (t) => {
+		const { localBaseUrl } = await startServer(t)
+		const fileBuffer = fs.readFileSync(DEMOTILES_Z2)
+
+		const response = await fetch(`${localBaseUrl}/maps/default`, {
+			method: 'PUT',
+			body: fileBuffer,
+			headers: {
+				'Content-Type': 'application/octet-stream',
+			},
+		})
+
+		expect(response.status).toBe(403)
+		const error = await response.json()
+		expect(error.code).toBe('FORBIDDEN')
+	})
+
+	it('should return 404 when uploading to arbitrary mapId', async (t) => {
+		const { localBaseUrl } = await startServer(t)
+		const fileBuffer = fs.readFileSync(DEMOTILES_Z2)
+
+		const response = await fetch(`${localBaseUrl}/maps/someotherid`, {
+			method: 'PUT',
+			body: fileBuffer,
+			headers: {
+				'Content-Type': 'application/octet-stream',
+			},
+		})
+
+		expect(response.status).toBe(404)
+		const error = await response.json()
+		expect(error.code).toBe('MAP_NOT_FOUND')
+	})
+})
+
+describe('Error Response Format', () => {
+	it('should return structured error for invalid map', async (t) => {
+		const { localBaseUrl } = await startServer(t)
+		const response = await fetch(`${localBaseUrl}/maps/nonexistent/style.json`)
+		expect(response.status).toBe(404)
+
+		const error = await response.json()
+		expect(error).toHaveProperty('code')
+		expect(error).toHaveProperty('message')
+		expect(error.code).toBe('MAP_NOT_FOUND')
+	})
+
+	it('should return structured error for invalid upload', async (t) => {
+		const { localBaseUrl } = await startServer(t)
+		const response = await fetch(`${localBaseUrl}/maps/custom`, {
+			method: 'PUT',
+			body: Buffer.from('invalid'),
+			headers: { 'Content-Type': 'application/octet-stream' },
+		})
+		expect(response.status).toBe(400)
+
+		const error = await response.json()
+		expect(error).toHaveProperty('code')
+		expect(error).toHaveProperty('message')
+		expect(error.code).toBe('INVALID_MAP_FILE')
+	})
+
+	it('should return RESOURCE_NOT_FOUND for missing tile', async (t) => {
+		const { localBaseUrl } = await startServer(t)
+		// Request a tile that doesn't exist in the map
+		const response = await fetch(`${localBaseUrl}/maps/custom/99/999/999.pbf`)
+		expect(response.status).toBe(404)
+
+		const error = await response.json()
+		expect(error).toHaveProperty('code')
+		expect(error).toHaveProperty('message')
+		expect(error.code).toBe('RESOURCE_NOT_FOUND')
+	})
+
+	it('should return RESOURCE_NOT_FOUND for missing sprite', async (t) => {
+		const { localBaseUrl } = await startServer(t)
+		const response = await fetch(
+			`${localBaseUrl}/maps/custom/nonexistent-sprite.png`,
+		)
+		expect(response.status).toBe(404)
+
+		const error = await response.json()
+		expect(error).toHaveProperty('code')
+		expect(error.code).toBe('RESOURCE_NOT_FOUND')
+	})
+})
+
+describe('Response Headers', () => {
+	it('should return content-type application/json for style.json', async (t) => {
+		const { localBaseUrl } = await startServer(t)
+		const response = await fetch(`${localBaseUrl}/maps/custom/style.json`)
+		expect(response.status).toBe(200)
+		expect(response.headers.get('content-type')).toContain('application/json')
+	})
+
+	it('should return content-type application/json for info endpoint', async (t) => {
+		const { localBaseUrl } = await startServer(t)
+		const response = await fetch(`${localBaseUrl}/maps/custom/info`)
+		expect(response.status).toBe(200)
+		expect(response.headers.get('content-type')).toContain('application/json')
 	})
 })

@@ -1,4 +1,4 @@
-import type { MapShareStateUpdate, MapInfo } from '../types.js'
+import type { MapShareStateUpdate } from '../types.js'
 
 /**
  * Event representing a state update in a map share

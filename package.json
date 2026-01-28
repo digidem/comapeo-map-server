@@ -1,80 +1,84 @@
 {
-  "name": "@comapeo/map-server",
-  "version": "1.0.0",
-  "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    }
-  },
-  "scripts": {
-    "test": "vitest run",
-    "format": "prettier --write .",
-    "lint": "eslint",
-    "types": "tsc --noEmit",
-    "prepare": "husky",
-    "prepack": "tsc -p tsconfig.npm.json",
-    "postinstall": "patch-package"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "MIT",
-  "description": "",
-  "devDependencies": {
-    "@eslint/js": "^9.39.1",
-    "@trivago/prettier-plugin-sort-imports": "^6.0.0",
-    "@tsconfig/node18": "^18.2.6",
-    "@types/bogon": "^1.0.2",
-    "@types/node": "^20.19.26",
-    "@vitest/coverage-v8": "^4.0.17",
-    "bogon": "^1.1.0",
-    "eslint": "^9.39.1",
-    "eventsource-client": "^1.2.0",
-    "globals": "^16.5.0",
-    "husky": "^9.1.7",
-    "ky": "1.7.5",
-    "lint-staged": "^16.2.7",
-    "msw": "^2.12.4",
-    "patch-package": "^8.0.1",
-    "prettier": "^3.7.4",
-    "type-fest": "^5.3.1",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.15"
-  },
-  "prettier": {
-    "semi": false,
-    "singleQuote": true,
-    "useTabs": true,
-    "importOrderSeparation": true,
-    "importOrder": [
-      "^node:",
-      "^@?\\w",
-      "^[./]"
-    ],
-    "plugins": [
-      "@trivago/prettier-plugin-sort-imports"
-    ]
-  },
-  "lint-staged": {
-    "*.js": "eslint --cache --fix",
-    "*.{js,css,md}": "prettier --write"
-  },
-  "dependencies": {
-    "@whatwg-node/server": "^0.10.17",
-    "itty-router": "^5.0.22",
-    "p-defer": "^4.0.1",
-    "secret-stream-http": "^1.0.1",
-    "styled-map-package": "^4.0.1",
-    "typebox": "^1.0.61",
-    "typed-event-target": "^3.4.0",
-    "z32": "^1.1.0"
-  },
-  "bundleDependencies": [
-    "@whatwg-node/server"
-  ],
-  "files": [
-    "src/",
-    "dist/"
-  ]
+	"name": "@comapeo/map-server",
+	"version": "1.0.0",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"test": "run-p test:*",
+		"test:js": "vitest run",
+		"test:lint": "eslint",
+		"test:types": "tsc --noEmit",
+		"format": "prettier --write .",
+		"prepare": "husky",
+		"prepack": "tsc -p tsconfig.npm.json",
+		"postinstall": "patch-package"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "MIT",
+	"description": "",
+	"devDependencies": {
+		"@eslint/js": "^9.39.1",
+		"@trivago/prettier-plugin-sort-imports": "^6.0.0",
+		"@tsconfig/node18": "^18.2.6",
+		"@types/bogon": "^1.0.2",
+		"@types/node": "^20.19.26",
+		"@vitest/coverage-v8": "^4.0.17",
+		"bogon": "^1.1.0",
+		"eslint": "^9.39.1",
+		"eventsource-client": "^1.2.0",
+		"globals": "^16.5.0",
+		"husky": "^9.1.7",
+		"ky": "1.7.5",
+		"lint-staged": "^16.2.7",
+		"msw": "^2.12.4",
+		"npm-run-all2": "^7.0.2",
+		"patch-package": "^8.0.1",
+		"prettier": "^3.7.4",
+		"type-fest": "^5.3.1",
+		"typescript": "^5.9.3",
+		"typescript-eslint": "^8.53.1",
+		"vitest": "^4.0.15"
+	},
+	"prettier": {
+		"semi": false,
+		"singleQuote": true,
+		"useTabs": true,
+		"importOrderSeparation": true,
+		"importOrder": [
+			"^node:",
+			"^@?\\w",
+			"^[./]"
+		],
+		"plugins": [
+			"@trivago/prettier-plugin-sort-imports"
+		]
+	},
+	"lint-staged": {
+		"*.js": "eslint --cache --fix",
+		"*.{js,css,md}": "prettier --write"
+	},
+	"dependencies": {
+		"@whatwg-node/server": "^0.10.17",
+		"itty-router": "^5.0.22",
+		"p-defer": "^4.0.1",
+		"p-mutex": "^0.1.0",
+		"secret-stream-http": "^1.0.1",
+		"styled-map-package": "^4.0.1",
+		"typebox": "^1.0.61",
+		"typed-event-target": "^3.4.0",
+		"z32": "^1.1.0"
+	},
+	"bundleDependencies": [
+		"@whatwg-node/server"
+	],
+	"files": [
+		"src/",
+		"dist/"
+	]
 }
