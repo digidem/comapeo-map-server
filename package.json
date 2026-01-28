@@ -13,7 +13,7 @@
 		"test:js": "vitest run",
 		"test:lint": "eslint",
 		"test:types": "tsc --noEmit",
-		"test:publint": "publint",
+		"test:publint": "npm run build && publint",
 		"format": "prettier --write .",
 		"prepare": "husky && patch-package",
 		"build": "tsc -p tsconfig.npm.json",
