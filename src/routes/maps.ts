@@ -30,7 +30,7 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 	router.get<MapRequest>(`/:mapId/info`, async (request) => {
 		const info = await ctx.getMapInfo(request.params.mapId)
 		return {
-			created: info.mapCreated,
+			created: info.mapCreatedAt,
 			size: info.estimatedSizeBytes,
 			name: info.mapName,
 		}

@@ -38,7 +38,7 @@ export class MapShare extends TypedEventTarget<
 				(baseUrl) => new URL(`${shareId}`, addTrailingSlash(baseUrl)).href,
 			),
 			receiverDeviceId,
-			mapShareCreated: Date.now(),
+			mapShareCreatedAt: Date.now(),
 			status: 'pending',
 		}
 	}
