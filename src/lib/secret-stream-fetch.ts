@@ -1,16 +1,17 @@
 import { fetch as secretStreamFetchOrig } from 'secret-stream-http'
 
 import { errors } from './errors.js'
+import { isArrayReadonly } from './utils.js'
 
 /**
  * A wrapper around secret-stream-http's fetch that tries multiple URLs until one works.
  * This is useful when the server has multiple IPs for different network interfaces.
  */
 export async function secretStreamFetch(
-	urls: string | URL | Array<string | URL>,
+	urls: string | URL | readonly [string | URL, ...Array<string | URL>],
 	options: Parameters<typeof secretStreamFetchOrig>[1],
 ) {
-	if (!Array.isArray(urls)) {
+	if (!isArrayReadonly(urls)) {
 		urls = [urls]
 	}
 	let response: Response | undefined

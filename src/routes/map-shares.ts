@@ -227,7 +227,10 @@ export function MapSharesRouter(
 /**
  * Get the base URLs for downloads for all non-internal IPv4 addresses of the machine
  */
-function getRemoteBaseUrls(requestUrl: string, remotePort: number): string[] {
+function getRemoteBaseUrls(
+	requestUrl: string,
+	remotePort: number,
+): readonly [string, ...string[]] {
 	requestUrl = addTrailingSlash(requestUrl)
 	const interfaces = os.networkInterfaces()
 	const baseUrls: string[] = []
@@ -242,5 +245,12 @@ function getRemoteBaseUrls(requestUrl: string, remotePort: number): string[] {
 			}
 		}
 	}
+	if (!arrayAtLeastOne(baseUrls)) {
+		throw new Error('No non-internal IPv4 addresses found')
+	}
 	return baseUrls
+}
+
+function arrayAtLeastOne<T>(arr: readonly T[]): arr is readonly [T, ...T[]] {
+	return arr.length >= 1
 }

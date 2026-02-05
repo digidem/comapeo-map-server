@@ -15,7 +15,7 @@ export type MapShareOptions = MapInfo & {
 	 * are supported because the server might have multiple network interfaces
 	 * with different IP addresses
 	 */
-	baseUrls: string[]
+	baseUrls: readonly [string, ...string[]]
 	/** The device ID of the receiver */
 	receiverDeviceId: string
 }
@@ -36,7 +36,7 @@ export class MapShare extends TypedEventTarget<
 			shareId,
 			mapShareUrls: baseUrls.map(
 				(baseUrl) => new URL(`${shareId}`, addTrailingSlash(baseUrl)).href,
-			),
+			) as unknown as readonly [string, ...string[]], // grrrr TS
 			receiverDeviceId,
 			mapShareCreatedAt: Date.now(),
 			status: 'pending',

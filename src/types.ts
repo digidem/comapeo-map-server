@@ -73,11 +73,13 @@ export type DownloadStateUpdate = Extract<
 	{ status: 'downloading' | 'completed' | 'error' | 'canceled' | 'aborted' }
 >
 
-export const MapShareUrls = T.Array(T.String({ format: 'uri' }), {
-	minItems: 1,
-	description:
-		'List of map share URLs (for each network interface of the sharer)',
-})
+export const MapShareUrls = T.Unsafe<readonly [string, ...string[]]>(
+	T.Array(T.String({ format: 'uri' }), {
+		minItems: 1,
+		description:
+			'List of map share URLs (for each network interface of the sharer)',
+	}),
+)
 export const ShareId = T.String({
 	minLength: 1,
 	description: 'The ID of the map share',
