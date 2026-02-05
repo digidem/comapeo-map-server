@@ -108,3 +108,11 @@ function isNonEmptyArray<T>(arr: T[]): arr is [T, ...T[]] {
 export function addTrailingSlash(url: string): string {
 	return url.endsWith('/') ? url : url + '/'
 }
+
+// Typescript's Array.isArray definition does not work as a type guard for
+// readonly arrays, so we need to define our own type guard for that
+export function isArrayReadonly<T, U>(
+	value: U | readonly T[],
+): value is readonly T[] {
+	return Array.isArray(value)
+}

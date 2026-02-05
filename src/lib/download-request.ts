@@ -100,14 +100,14 @@ export class DownloadRequest extends TypedEventTarget<
 		mapShareUrls,
 		stream,
 	}: {
-		mapShareUrls: string[]
+		mapShareUrls: readonly [string, ...string[]]
 		stream: WritableStream<Uint8Array>
 		remotePublicKey: Uint8Array
 		keyPair: { publicKey: Uint8Array; secretKey: Uint8Array }
 	}) {
 		const downloadUrls = mapShareUrls.map(
 			(baseUrl) => new URL('download', addTrailingSlash(baseUrl)),
-		)
+		) as unknown as [URL, ...URL[]] // grrrr TS
 		const response = await secretStreamFetch(downloadUrls, {
 			dispatcher: this.#dispatcher,
 		})
