@@ -20,9 +20,9 @@
 		"prepack": "run-s test build"
 	},
 	"keywords": [],
-	"author": "",
+	"author": "Awana Digital",
 	"license": "MIT",
-	"description": "",
+	"description": "Map Style & Tile server for CoMapeo",
 	"devDependencies": {
 		"@eslint/js": "^9.39.1",
 		"@trivago/prettier-plugin-sort-imports": "^6.0.0",
@@ -82,5 +82,16 @@
 	"files": [
 		"src/",
 		"dist/"
-	]
+	],
+	"directories": {
+		"test": "test"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/digidem/comapeo-map-server.git"
+	},
+	"bugs": {
+		"url": "https://github.com/digidem/comapeo-map-server/issues"
+	},
+	"homepage": "https://github.com/digidem/comapeo-map-server#readme"
 }
