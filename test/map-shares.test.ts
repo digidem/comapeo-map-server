@@ -34,15 +34,15 @@ describe('Map Shares and Downloads', () => {
 			const share = await response.json()
 			const {
 				shareId,
-				mapShareCreated,
+				mapShareCreatedAt,
 				// eslint-disable-next-line @typescript-eslint/no-unused-vars
-				mapCreated,
+				mapCreatedAt: mapCreated,
 				mapShareUrls,
 				...deterministic
 			} = share as MapShareState
 			expect(deterministic).toMatchSnapshot()
-			expect(mapShareCreated).toBeGreaterThanOrEqual(timeBeforeRequest)
-			expect(mapShareCreated).toBeLessThanOrEqual(Date.now())
+			expect(mapShareCreatedAt).toBeGreaterThanOrEqual(timeBeforeRequest)
+			expect(mapShareCreatedAt).toBeLessThanOrEqual(Date.now())
 			expect(mapShareUrls.length).toBeGreaterThanOrEqual(1)
 			expect(mapShareUrls[0]).toMatch(`/mapShares/${shareId}`)
 			expect(share).toHaveProperty('status', 'pending')

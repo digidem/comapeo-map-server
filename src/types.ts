@@ -98,7 +98,7 @@ const MapInfo = T.Object({
 	),
 	minzoom: T.Number({ description: 'The minimum zoom level of the map data' }),
 	maxzoom: T.Number({ description: 'The maximum zoom level of the map data' }),
-	mapCreated: T.Number({
+	mapCreatedAt: T.Number({
 		description: 'Timestamp (ms since epoch) when the map was created',
 	}),
 })
@@ -110,7 +110,7 @@ const MapShareBase = T.Intersect([
 		}),
 		shareId: ShareId,
 		mapShareUrls: MapShareUrls,
-		mapShareCreated: T.Number({
+		mapShareCreatedAt: T.Number({
 			description: 'Timestamp (ms since epoch) when the map share was created',
 		}),
 	}),
