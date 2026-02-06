@@ -1,5 +1,4 @@
 import { Agent as SecretStreamAgent } from 'secret-stream-http'
-import z32 from 'z32'
 
 import { TypedEventTarget } from '../lib/event-target.js'
 import type { DownloadCreateParams } from '../routes/downloads.js'
@@ -46,7 +45,7 @@ export class DownloadRequest extends TypedEventTarget<
 		}
 		let remotePublicKey: Uint8Array
 		try {
-			remotePublicKey = z32.decode(this.#state.senderDeviceId)
+			remotePublicKey = Buffer.from(this.#state.senderDeviceId, 'hex')
 		} catch {
 			throw new errors.INVALID_SENDER_DEVICE_ID(
 				`Invalid sender device ID: ${this.#state.senderDeviceId}`,

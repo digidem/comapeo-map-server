@@ -2,7 +2,6 @@ import crypto from 'node:crypto'
 
 import { randomBytes } from 'crypto'
 import type { SMPStyle } from 'styled-map-package'
-import z32 from 'z32'
 
 import type { BBox } from '../types.js'
 
@@ -33,7 +32,7 @@ export function getErrorCode(maybeError: unknown) {
 export function noop() {}
 
 export function generateId() {
-	return z32.encode(randomBytes(8))
+	return randomBytes(8).toString('hex')
 }
 
 export function getOrInsert<K, V>(map: Map<K, V>, key: K, value: V): V {

@@ -8,7 +8,6 @@ import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { Agent as SecretStreamAgent } from 'secret-stream-http'
 import type { TestContext } from 'vitest'
-import z32 from 'z32'
 
 import type { ServerOptions } from '../src/index.js'
 import { createServer } from '../src/index.js'
@@ -133,7 +132,7 @@ export async function startServers(
 		remoteBaseUrl: sender.remoteBaseUrl,
 		remotePort: sender.remotePort,
 		keyPair: senderKeyPair,
-		deviceId: z32.encode(senderKeyPair.publicKey),
+		deviceId: Buffer.from(senderKeyPair.publicKey).toString('hex'),
 		eventsPath: (id: string) => `/mapShares/${id}/events`,
 	}
 
@@ -146,7 +145,7 @@ export async function startServers(
 		remoteBaseUrl: receiver.remoteBaseUrl,
 		localPort: receiver.localPort,
 		keyPair: receiverKeyPair,
-		deviceId: z32.encode(receiverKeyPair.publicKey),
+		deviceId: Buffer.from(receiverKeyPair.publicKey).toString('hex'),
 		customMapPath: receiver.customMapPath,
 		eventsPath: (id: string) => `/downloads/${id}/events`,
 	}

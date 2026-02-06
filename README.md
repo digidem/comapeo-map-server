@@ -264,7 +264,7 @@ Content-Type: application/json
 
 {
   "mapId": "custom",
-  "receiverDeviceId": "kmx8sejfn..." // z32-encoded public key
+  "receiverDeviceId": "a1b2c3d4..." // hex-encoded public key
 }
 ```
 
@@ -326,7 +326,7 @@ POST /downloads
 Content-Type: application/json
 
 {
-  "senderDeviceId": "z32-encoded-public-key",
+  "senderDeviceId": "a1b2c3d4e5f6...",
   "shareId": "abc123...",
   "mapShareUrls": ["http://192.168.1.100:9090/mapShares/abc123..."],
   "estimatedSizeBytes": 12345678
@@ -370,7 +370,7 @@ POST /mapShares/{shareId}/decline
 Content-Type: application/json
 
 {
-  "senderDeviceId": "z32-encoded-public-key",
+  "senderDeviceId": "a1b2c3d4e5f6...",
   "mapShareUrls": ["http://192.168.1.100:9090/mapShares/abc123..."],
   "reason": "disk_full" | "user_rejected" | "other reason"
 }
@@ -385,7 +385,6 @@ Called on the receiver's local server. The server handles making the P2P request
 ```javascript
 import { createServer } from '@comapeo/map-server'
 import Hypercore from 'hypercore'
-import z32 from 'z32'
 
 const deviceAKeyPair = Hypercore.keyPair()
 const serverA = createServer({
@@ -398,7 +397,7 @@ const serverA = createServer({
 const { localPort } = await serverA.listen()
 
 // Device B's public key (exchanged via your discovery mechanism)
-const deviceBId = 'kmx8sejfn...' // z32-encoded
+const deviceBId = 'a1b2c3d4e5f6...' // hex-encoded
 
 // Create share
 const res = await fetch(`http://127.0.0.1:${localPort}/mapShares`, {
@@ -559,7 +558,7 @@ All error responses follow this format:
 | `DOWNLOAD_SHARE_DECLINED`    | 409    | Cannot download a share that was declined                  |
 | `DOWNLOAD_SHARE_NOT_PENDING` | 409    | Cannot download a share that is not pending                |
 | `ABORT_NOT_DOWNLOADING`      | 409    | Cannot abort a download that is not in progress            |
-| `INVALID_SENDER_DEVICE_ID`   | 400    | The sender device ID is not a valid z32-encoded public key |
+| `INVALID_SENDER_DEVICE_ID`   | 400    | The sender device ID is not a valid hex-encoded public key |
 
 ### Generic Errors
 

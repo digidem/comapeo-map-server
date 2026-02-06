@@ -7,7 +7,6 @@ import {
 } from 'secret-stream-http'
 import { Type as T, type Static } from 'typebox'
 import { Compile } from 'typebox/compile'
-import z32 from 'z32'
 
 import type { Context } from '../context.js'
 import { errors, StatusError } from '../lib/errors.js'
@@ -151,7 +150,7 @@ export function MapSharesRouter(
 			throw new errors.INVALID_REQUEST()
 		}
 		const { senderDeviceId, mapShareUrls, reason } = parsedBody
-		const remotePublicKey = z32.decode(senderDeviceId)
+		const remotePublicKey = Buffer.from(senderDeviceId, 'hex')
 		const keyPair = ctx.getKeyPair()
 		let response: Response | undefined
 		// The sharer could have multiple IPs for different network interfaces, and
