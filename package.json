@@ -73,8 +73,7 @@
 		"secret-stream-http": "^1.0.1",
 		"styled-map-package": "^4.0.1",
 		"typebox": "^1.0.61",
-		"typed-event-target": "^3.4.0",
-		"z32": "^1.1.0"
+		"typed-event-target": "^3.4.0"
 	},
 	"bundleDependencies": [
 		"@whatwg-node/server"
