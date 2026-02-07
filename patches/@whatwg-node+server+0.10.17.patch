@@ -18,6 +18,22 @@ index e24db6e..980d0d8 100644
          ...options?.fetchAPI,
      };
      const useCustomAbortCtrl = options?.__useCustomAbortCtrl == null
+diff --git a/node_modules/@whatwg-node/server/cjs/index.js b/node_modules/@whatwg-node/server/cjs/index.js
+index abb80e8..869c427 100644
+--- a/node_modules/@whatwg-node/server/cjs/index.js
++++ b/node_modules/@whatwg-node/server/cjs/index.js
+@@ -7,11 +7,8 @@ tslib_1.__exportStar(require("./types.js"), exports);
+ tslib_1.__exportStar(require("./utils.js"), exports);
+ tslib_1.__exportStar(require("./plugins/types.js"), exports);
+ tslib_1.__exportStar(require("./plugins/useCors.js"), exports);
+-tslib_1.__exportStar(require("./plugins/useErrorHandling.js"), exports);
+ tslib_1.__exportStar(require("./plugins/useContentEncoding.js"), exports);
+ tslib_1.__exportStar(require("./uwebsockets.js"), exports);
+-var fetch_1 = require("@whatwg-node/fetch");
+-Object.defineProperty(exports, "Response", { enumerable: true, get: function () { return fetch_1.Response; } });
+ var disposablestack_1 = require("@whatwg-node/disposablestack");
+ Object.defineProperty(exports, "DisposableSymbols", { enumerable: true, get: function () { return disposablestack_1.DisposableSymbols; } });
+ tslib_1.__exportStar(require("@envelop/instrumentation"), exports);
 diff --git a/node_modules/@whatwg-node/server/esm/createServerAdapter.js b/node_modules/@whatwg-node/server/esm/createServerAdapter.js
 index 941f115..0815d9a 100644
 --- a/node_modules/@whatwg-node/server/esm/createServerAdapter.js
@@ -37,6 +53,20 @@ index 941f115..0815d9a 100644
          ...options?.fetchAPI,
      };
      const useCustomAbortCtrl = options?.__useCustomAbortCtrl == null
+diff --git a/node_modules/@whatwg-node/server/esm/index.js b/node_modules/@whatwg-node/server/esm/index.js
+index f83b68c..2eaf6d3 100644
+--- a/node_modules/@whatwg-node/server/esm/index.js
++++ b/node_modules/@whatwg-node/server/esm/index.js
+@@ -3,9 +3,7 @@ export * from './types.js';
+ export * from './utils.js';
+ export * from './plugins/types.js';
+ export * from './plugins/useCors.js';
+-export * from './plugins/useErrorHandling.js';
+ export * from './plugins/useContentEncoding.js';
+ export * from './uwebsockets.js';
+-export { Response } from '@whatwg-node/fetch';
+ export { DisposableSymbols } from '@whatwg-node/disposablestack';
+ export * from '@envelop/instrumentation';
 diff --git a/node_modules/@whatwg-node/server/esm/utils.js b/node_modules/@whatwg-node/server/esm/utils.js
 index 237a6e1..5cbe472 100644
 --- a/node_modules/@whatwg-node/server/esm/utils.js
