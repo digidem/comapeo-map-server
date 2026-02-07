@@ -13,7 +13,6 @@ import {
 	Agent as SecretStreamAgent,
 } from 'secret-stream-http'
 import { describe, it, expect } from 'vitest'
-import z32 from 'z32'
 
 import type { MapShareState } from '../src/types.js'
 import {
@@ -151,7 +150,7 @@ describe('Map Shares and Downloads', () => {
 
 			// Create a third device (another receiver)
 			const receiver2KeyPair = SecretStreamAgent.keyPair(Buffer.alloc(32, 2))
-			const receiver2DeviceId = z32.encode(receiver2KeyPair.publicKey)
+			const receiver2DeviceId = Buffer.from(receiver2KeyPair.publicKey).toString('hex')
 
 			// Create share for first receiver
 			const share1 = await createShare().json()
@@ -1102,7 +1101,7 @@ describe('Map Shares and Downloads', () => {
 
 				// Create a third device with different keys
 				const wrongKeyPair = SecretStreamAgent.keyPair()
-				const wrongDeviceId = z32.encode(wrongKeyPair.publicKey)
+				const wrongDeviceId = Buffer.from(wrongKeyPair.publicKey).toString('hex')
 
 				// Create a share for a different device
 				const { shareId: shareId2 } = await sender
@@ -1132,7 +1131,7 @@ describe('Map Shares and Downloads', () => {
 
 				// Create a third device with different keys
 				const wrongKeyPair = SecretStreamAgent.keyPair()
-				const wrongDeviceId = z32.encode(wrongKeyPair.publicKey)
+				const wrongDeviceId = Buffer.from(wrongKeyPair.publicKey).toString('hex')
 
 				// Create a share for wrongDeviceId
 				const { shareId } = await sender
@@ -1185,7 +1184,7 @@ describe('Map Shares and Downloads', () => {
 
 				// Create a third device
 				const wrongKeyPair = SecretStreamAgent.keyPair()
-				const wrongDeviceId = z32.encode(wrongKeyPair.publicKey)
+				const wrongDeviceId = Buffer.from(wrongKeyPair.publicKey).toString('hex')
 
 				// Create a share for wrongDeviceId
 				const { shareId } = await sender
@@ -1494,7 +1493,7 @@ describe('Map Shares and Downloads', () => {
 
 				const response = await receiver.post('downloads', {
 					json: {
-						senderDeviceId: 'not-a-valid-z32-encoded-public-key',
+						senderDeviceId: 'not-a-valid-hex-encoded-public-key',
 						shareId: 'test-share',
 						mapShareUrls: ['http://127.0.0.1:1/mapShares/test-share'],
 						estimatedSizeBytes: 1000,
@@ -1509,8 +1508,8 @@ describe('Map Shares and Downloads', () => {
 			it('should reject download with sender device ID of wrong length', async (t) => {
 				const { receiver } = await startServers(t)
 
-				// Valid z32 encoding but only 16 bytes instead of 32
-				const shortKey = z32.encode(new Uint8Array(16))
+				// Valid hex encoding but only 16 bytes instead of 32
+				const shortKey = Buffer.from(new Uint8Array(16)).toString('hex')
 
 				const response = await receiver.post('downloads', {
 					json: {

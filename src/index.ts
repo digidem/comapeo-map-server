@@ -9,7 +9,6 @@ import {
 	Agent,
 	createServer as createSecretStreamServer,
 } from 'secret-stream-http'
-import z32 from 'z32'
 
 import { Context } from './context.js'
 import { fetchAPI } from './lib/fetch-api.js'
@@ -79,7 +78,7 @@ export function createServer(options: ServerOptions) {
 		serverAdapter(req, res, {
 			isLocalhost: false,
 			// @ts-expect-error - the types for this are too hard and making them work would not add any type safety.
-			remoteDeviceId: z32.encode(req.socket.remotePublicKey),
+			remoteDeviceId: Buffer.from(req.socket.remotePublicKey).toString('hex'),
 		})
 	})
 	const secretStreamServer = createSecretStreamServer(remoteHttpServer, {
