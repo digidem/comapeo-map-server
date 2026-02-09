@@ -56,7 +56,7 @@ export function createServer(options: ServerOptions) {
 		options.keyPair = Agent.keyPair()
 	}
 
-	const deferredListen = pDefer<ListenResult>()
+	let deferredListen = pDefer<ListenResult>()
 	const context = new Context({
 		...options,
 		keyPair: options.keyPair,
@@ -124,6 +124,8 @@ export function createServer(options: ServerOptions) {
 				once(localHttpServer, 'close'),
 				once(secretStreamServer, 'close'),
 			])
+			// Reset deferred listen for potential restart with different ports
+			deferredListen = pDefer<ListenResult>()
 		},
 	}
 }
