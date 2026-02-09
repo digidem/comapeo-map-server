@@ -5,7 +5,7 @@ import {
 	type DownloadStateUpdate,
 	type MapInfo,
 } from '../types.js'
-import { errors } from './errors.js'
+import { errors, jsonError } from './errors.js'
 import { StateUpdateEvent } from './state-update-event.js'
 import { addTrailingSlash, generateId, getErrorCode } from './utils.js'
 
@@ -155,7 +155,7 @@ export class DownloadResponse extends TypedEventTarget<
 				} else if (getErrorCode(error) === 'ECONNRESET') {
 					this.#updateState({ status: 'aborted' })
 				} else {
-					this.#updateState({ status: 'error', error })
+					this.#updateState({ status: 'error', error: jsonError(error) })
 				}
 			})
 
