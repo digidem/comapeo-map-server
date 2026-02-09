@@ -6,7 +6,6 @@ import { Agent as SecretStreamAgent } from 'secret-stream-http'
 import { describe, it, expect } from 'vitest'
 
 import { createServer } from '../src/index.js'
-
 import { DEMOTILES_Z2, OSM_BRIGHT_Z6 } from './helpers.js'
 
 describe('Server Restart', () => {
@@ -138,5 +137,5 @@ describe('Server Restart', () => {
 		// All ports should be different (extremely likely with port 0)
 		const uniquePorts = new Set(ports)
 		expect(uniquePorts.size).toBe(3)
-	})
+	}, 20_000) // On node 18 restarting can be slow.
 })
