@@ -1,7 +1,7 @@
 import assert from 'node:assert'
 import { once } from 'node:events'
 import http from 'node:http'
-import { type AddressInfo } from 'node:net'
+import { type AddressInfo, type Socket } from 'node:net'
 
 import { createServerAdapter } from '@whatwg-node/server'
 import pDefer from 'p-defer'
@@ -86,8 +86,8 @@ export function createServer(options: ServerOptions) {
 	})
 
 	// Track connections for proper cleanup
-	const connections = new Set<any>()
-	const onConnection = (socket: any) => {
+	const connections = new Set<Socket>()
+	const onConnection = (socket: Socket) => {
 		connections.add(socket)
 		socket.once('close', () => {
 			connections.delete(socket)
