@@ -361,6 +361,7 @@ describe('Map Shares and Downloads', () => {
 				'error.code',
 				'DOWNLOAD_SHARE_NOT_PENDING',
 			)
+			expect(events.at(-1)).toHaveProperty('error.message')
 
 			await completedPromise
 		}, 2000)
@@ -385,6 +386,7 @@ describe('Map Shares and Downloads', () => {
 				'error.code',
 				'DOWNLOAD_SHARE_NOT_PENDING',
 			)
+			expect(events.at(-1)).toHaveProperty('error.message')
 		})
 	})
 
@@ -582,6 +584,7 @@ describe('Map Shares and Downloads', () => {
 					'error.code',
 					'DOWNLOAD_SHARE_DECLINED',
 				)
+				expect(events.at(-1)).toHaveProperty('error.message')
 			})
 
 			it('should reject decline on non-pending share', async (t) => {
@@ -1590,6 +1593,7 @@ describe('Map Shares and Downloads', () => {
 				.json<any>()
 			expect(downloadStatus.status).toBe('error')
 			expect(downloadStatus).toHaveProperty('error.code', 'DOWNLOAD_ERROR')
+			expect(downloadStatus).toHaveProperty('error.message')
 		})
 
 		it('should clean up temp files on download error', async (t) => {
