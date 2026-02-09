@@ -67,7 +67,7 @@ export class DownloadRequest extends TypedEventTarget<
 					this.#updateState({ status: 'canceled' })
 				} else if (getErrorCode(error)) {
 					// Specific known error from the server
-					this.#updateState({ status: 'error', error })
+					this.#updateState({ status: 'error', error: jsonError(error) })
 				} else {
 					// Once the download has started, the sender can only close the
 					// connection to cancel the download, which we only see as an
