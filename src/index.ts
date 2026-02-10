@@ -16,6 +16,7 @@ import { RootRouter } from './routes/root.js'
 import type { FetchContext } from './types.js'
 
 export { errors } from './lib/errors.js'
+export { CUSTOM_MAP_ID, DEFAULT_MAP_ID } from './lib/constants.js'
 
 export type {
 	MapInfo,
