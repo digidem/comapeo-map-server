@@ -12,11 +12,32 @@ const MAPS_BASE = '/maps/'
 const MAP_SHARES_BASE = '/mapShares/'
 const DOWNLOADS_BASE = '/downloads/'
 
-const { preflight, corsify } = cors({
+const { preflight } = cors({
 	origin: '*',
 	allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
 	allowHeaders: ['Content-Type'],
 })
+
+/**
+ * Custom corsify that doesn't clone the response body.
+ * The built-in itty-router corsify uses response.clone() which breaks
+ * streaming response error handling (abort signals don't propagate correctly).
+ */
+function corsify(response: Response): Response {
+	// Skip if CORS headers already present or if it's a WebSocket upgrade
+	if (response.headers.get('access-control-allow-origin') || response.status === 101) {
+		return response
+	}
+	// Create new headers with CORS header added
+	const headers = new Headers(response.headers)
+	headers.set('access-control-allow-origin', '*')
+	// Return new Response with same body (not cloned) and updated headers
+	return new Response(response.body, {
+		status: response.status,
+		statusText: response.statusText,
+		headers,
+	})
+}
 
 export function RootRouter({ base = '/' }, ctx: Context): RouterExternal {
 	const router = Router<IRequestStrict, [FetchContext]>({
