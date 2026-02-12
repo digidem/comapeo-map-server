@@ -10,6 +10,10 @@
 		"./errors.js": {
 			"types": "./dist/lib/errors.d.ts",
 			"default": "./dist/lib/errors.js"
+		},
+		"./constants.js": {
+			"types": "./dist/lib/constants.d.ts",
+			"default": "./dist/lib/constants.js"
 		}
 	},
 	"scripts": {
