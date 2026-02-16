@@ -155,11 +155,11 @@ export class Context {
 						const existingReader = await existingReaderPromise
 						await existingReader.close().catch(noop)
 					}
-					await fsPromises.cp(tempPath, mapFileUrl, { force: true })
+					await fsPromises.rename(tempPath, mapFileUrl)
 					return new Reader(fileURLToPath(mapFileUrl))
 				})()
 				this.#mapReaders.set(mapId, readerPromise)
-				// Wait for the file copy to complete before closing the stream
+				// Wait for the file rename to complete before closing the stream
 				await readerPromise
 			},
 			async abort(err) {
