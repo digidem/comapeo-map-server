@@ -51,6 +51,8 @@ type ListenResult = {
 	remotePort: number
 }
 
+export type MapServer = ReturnType<typeof createServer>
+
 export function createServer(options: ServerOptions) {
 	validateOptions(options)
 	if (!options.keyPair) {
