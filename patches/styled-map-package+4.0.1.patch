@@ -1,0 +1,18 @@
+diff --git a/node_modules/styled-map-package/.DS_Store b/node_modules/styled-map-package/.DS_Store
+new file mode 100644
+index 0000000..4b95902
+Binary files /dev/null and b/node_modules/styled-map-package/.DS_Store differ
+diff --git a/node_modules/styled-map-package/dist/reader.js b/node_modules/styled-map-package/dist/reader.js
+index 75482d9..430c90d 100644
+--- a/node_modules/styled-map-package/dist/reader.js
++++ b/node_modules/styled-map-package/dist/reader.js
+@@ -117,7 +117,8 @@ class Reader {
+   async close() {
+     if (this.#closePromise) return this.#closePromise;
+     this.#closePromise = (async () => {
+-      const zip = await this.#zipPromise;
++      const zip = await this.#zipPromise.catch(noop);
++      if (!zip) return;
+       await zip.close();
+     })();
+     return this.#closePromise;

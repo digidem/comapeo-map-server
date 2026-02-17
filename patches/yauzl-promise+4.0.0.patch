@@ -1,0 +1,18 @@
+diff --git a/node_modules/yauzl-promise/lib/index.js b/node_modules/yauzl-promise/lib/index.js
+index 8cb0e6c..a1aa47b 100644
+--- a/node_modules/yauzl-promise/lib/index.js
++++ b/node_modules/yauzl-promise/lib/index.js
+@@ -54,7 +54,12 @@ async function open(path, options) {
+ 	const {size} = await fstatAsync(reader.fd);
+ 
+ 	const zip = new Zip(INTERNAL_SYMBOL, reader, size, options);
+-	await zip._init();
++	try {
++		await zip._init();
++	} catch (err) {
++		await reader.close();
++		throw err;
++	}
+ 	return zip;
+ }
+ 

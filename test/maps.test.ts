@@ -569,6 +569,28 @@ describe('Map Upload', () => {
 		const style = await styleResponse.json()
 		expect(style).toEqual(expectedStyle)
 	})
+
+	it('should not leave temp files after successful upload', async (t) => {
+		const { localBaseUrl, customMapPath } = await startServer(t, {
+			customMapPath: nonExistentPath,
+		})
+		const tmpDir = path.dirname(customMapPath)
+		const customMapBasename = path.basename(customMapPath)
+
+		const fileBuffer = fs.readFileSync(OSM_BRIGHT_Z6)
+		const response = await fetch(`${localBaseUrl}/maps/custom`, {
+			method: 'PUT',
+			body: fileBuffer,
+			headers: { 'Content-Type': 'application/octet-stream' },
+		})
+		expect(response.status).toBe(200)
+
+		const filesInDir = fs.readdirSync(tmpDir)
+		const tempFiles = filesInDir.filter(
+			(f) => f.startsWith(customMapBasename) && f.includes('.download-'),
+		)
+		expect(tempFiles).toHaveLength(0)
+	})
 })
 
 describe('Invalid Map Uploads', () => {
