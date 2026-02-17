@@ -79,7 +79,7 @@
 		"p-defer": "^4.0.1",
 		"p-mutex": "^0.1.0",
 		"secret-stream-http": "^1.0.1",
-		"styled-map-package": "^4.0.1",
+		"styled-map-package": "^4.1.0",
 		"typebox": "^1.0.61",
 		"typed-event-target": "^3.4.0"
 	},

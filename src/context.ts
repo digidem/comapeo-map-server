@@ -145,21 +145,16 @@ export class Context {
 					await fsPromises.unlink(tempPath).catch(noop)
 					throw new errors.INVALID_MAP_FILE()
 				} finally {
-					await tempReader.close().catch((e) => {
-						console.error('Error closing temp reader:', e)
-					})
+					await tempReader.close().catch(noop)
 				}
 
 				// Graceful replacement of SMP Reader when map file is updated
 				const readerPromise = (async () => {
 					const existingReaderPromise = this.#mapReaders.get(mapId)
 					if (existingReaderPromise) {
-						console.log(`Closing existing reader for map ID "${mapId}"`)
 						const existingReader = await existingReaderPromise
 						await existingReader.opened().catch(noop) // Ensure reader is fully opened before closing
-						await existingReader.close().catch((e) => {
-							console.error('Error closing existing reader:', e)
-						})
+						await existingReader.close().catch(noop)
 					}
 					await fsPromises.rename(tempPath, mapFileUrl)
 					return new Reader(fileURLToPath(mapFileUrl))
