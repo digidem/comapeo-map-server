@@ -156,6 +156,7 @@ export class Context {
 					if (existingReaderPromise) {
 						console.log(`Closing existing reader for map ID "${mapId}"`)
 						const existingReader = await existingReaderPromise
+						await existingReader.opened().catch(noop) // Ensure reader is fully opened before closing
 						await existingReader.close().catch((e) => {
 							console.error('Error closing existing reader:', e)
 						})
