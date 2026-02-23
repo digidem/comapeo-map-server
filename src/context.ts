@@ -130,11 +130,21 @@ export class Context {
 		const writer = writable.getWriter()
 		return new WritableStream({
 			async write(chunk) {
-				await writer.write(chunk)
+				try {
+					await writer.write(chunk)
+				} catch (err) {
+					await fsPromises.unlink(tempPath).catch(noop)
+					throw err
+				}
 			},
 			close: async () => {
 				// Finish writing to the temp file
-				await writer.close()
+				try {
+					await writer.close()
+				} catch (err) {
+					await fsPromises.unlink(tempPath).catch(noop)
+					throw err
+				}
 
 				// Validate the uploaded map file BEFORE replacing the existing one
 				const tempReader = new Reader(tempPath)
