@@ -134,7 +134,10 @@ export class Context {
 					await writer.write(chunk)
 				} catch (err) {
 					await fsPromises.unlink(tempPath).catch(noop)
-					throw err
+					throw new errors.MAP_WRITE_ERROR({
+						message: err instanceof Error ? err.message : undefined,
+						cause: err,
+					})
 				}
 			},
 			close: async () => {
@@ -143,7 +146,10 @@ export class Context {
 					await writer.close()
 				} catch (err) {
 					await fsPromises.unlink(tempPath).catch(noop)
-					throw err
+					throw new errors.MAP_WRITE_ERROR({
+						message: err instanceof Error ? err.message : undefined,
+						cause: err,
+					})
 				}
 
 				// Validate the uploaded map file BEFORE replacing the existing one

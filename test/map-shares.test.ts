@@ -12,7 +12,7 @@ import {
 	fetch as secretStreamFetch,
 	Agent as SecretStreamAgent,
 } from 'secret-stream-http'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
 import type { MapShareState } from '../src/types.js'
 import {
@@ -150,7 +150,9 @@ describe('Map Shares and Downloads', () => {
 
 			// Create a third device (another receiver)
 			const receiver2KeyPair = SecretStreamAgent.keyPair(Buffer.alloc(32, 2))
-			const receiver2DeviceId = Buffer.from(receiver2KeyPair.publicKey).toString('hex')
+			const receiver2DeviceId = Buffer.from(
+				receiver2KeyPair.publicKey,
+			).toString('hex')
 
 			// Create share for first receiver
 			const share1 = await createShare().json()
@@ -1104,7 +1106,9 @@ describe('Map Shares and Downloads', () => {
 
 				// Create a third device with different keys
 				const wrongKeyPair = SecretStreamAgent.keyPair()
-				const wrongDeviceId = Buffer.from(wrongKeyPair.publicKey).toString('hex')
+				const wrongDeviceId = Buffer.from(wrongKeyPair.publicKey).toString(
+					'hex',
+				)
 
 				// Create a share for a different device
 				const { shareId: shareId2 } = await sender
@@ -1134,7 +1138,9 @@ describe('Map Shares and Downloads', () => {
 
 				// Create a third device with different keys
 				const wrongKeyPair = SecretStreamAgent.keyPair()
-				const wrongDeviceId = Buffer.from(wrongKeyPair.publicKey).toString('hex')
+				const wrongDeviceId = Buffer.from(wrongKeyPair.publicKey).toString(
+					'hex',
+				)
 
 				// Create a share for wrongDeviceId
 				const { shareId } = await sender
@@ -1187,7 +1193,9 @@ describe('Map Shares and Downloads', () => {
 
 				// Create a third device
 				const wrongKeyPair = SecretStreamAgent.keyPair()
-				const wrongDeviceId = Buffer.from(wrongKeyPair.publicKey).toString('hex')
+				const wrongDeviceId = Buffer.from(wrongKeyPair.publicKey).toString(
+					'hex',
+				)
 
 				// Create a share for wrongDeviceId
 				const { shareId } = await sender
@@ -1634,6 +1642,51 @@ describe('Map Shares and Downloads', () => {
 					f.startsWith(receiverBasename) &&
 					f.includes('.download-') &&
 					!existingTempFiles.includes(f),
+			)
+			expect(tempFiles).toHaveLength(0)
+		})
+
+		it('should report MAP_WRITE_ERROR when write fails during download', async (t) => {
+			const { createShare, createDownload, receiver } = await startServers(t)
+			const receiverDir = path.dirname(receiver.customMapPath)
+			const receiverBasename = path.basename(receiver.customMapPath)
+
+			// Mock fs.createWriteStream on the receiver to simulate disk-full
+			const originalCreateWriteStream = fs.createWriteStream
+			const spy = vi
+				.spyOn(fs, 'createWriteStream')
+				.mockImplementation((...args: any[]) => {
+					const stream = originalCreateWriteStream.apply(fs, args as any)
+					stream._write = (
+						_chunk: any,
+						_encoding: BufferEncoding,
+						callback: (error?: Error | null) => void,
+					) => {
+						callback(new Error('ENOSPC: no space left on device'))
+					}
+					return stream
+				})
+			t.onTestFinished(() => spy.mockRestore())
+
+			const share = await createShare().json()
+			const download = await createDownload(share).json<any>()
+
+			// Wait for download to fail
+			await eventsUntil(receiver, download.downloadId, 'error')
+
+			// Check download state has MAP_WRITE_ERROR
+			const downloadStatus = await receiver
+				.get(`downloads/${download.downloadId}`)
+				.json<any>()
+			expect(downloadStatus.status).toBe('error')
+			expect(downloadStatus).toHaveProperty('error.code', 'MAP_WRITE_ERROR')
+
+			await delay(100)
+
+			// Verify temp files are cleaned up
+			const files = fs.readdirSync(receiverDir)
+			const tempFiles = files.filter(
+				(f) => f.startsWith(receiverBasename) && f.includes('.download-'),
 			)
 			expect(tempFiles).toHaveLength(0)
 		})
