@@ -6,7 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
 import { Reader } from 'styled-map-package'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
 import {
 	DEMOTILES_Z2,
@@ -568,6 +568,94 @@ describe('Map Upload', () => {
 		const styleResponse = await fetch(`${localBaseUrl}/maps/custom/style.json`)
 		const style = await styleResponse.json()
 		expect(style).toEqual(expectedStyle)
+	})
+
+	it('should clean up temp file when write errors during upload', async (t) => {
+		const { localBaseUrl, customMapPath } = await startServer(t, {
+			customMapPath: nonExistentPath,
+		})
+		const tmpDir = path.dirname(customMapPath)
+		const customMapBasename = path.basename(customMapPath)
+
+		// Mock fs.createWriteStream to return a writable that errors on write,
+		// simulating a disk-full scenario
+		const originalCreateWriteStream = fs.createWriteStream
+		const spy = vi.spyOn(fs, 'createWriteStream').mockImplementation(
+			(...args: any[]) => {
+				const stream = originalCreateWriteStream.apply(fs, args as any)
+				stream._write = (
+					_chunk: any,
+					_encoding: BufferEncoding,
+					callback: (error?: Error | null) => void,
+				) => {
+					callback(new Error('ENOSPC: no space left on device'))
+				}
+				return stream
+			},
+		)
+		t.onTestFinished(() => spy.mockRestore())
+
+		const fileBuffer = fs.readFileSync(OSM_BRIGHT_Z6)
+		const response = await fetch(`${localBaseUrl}/maps/custom`, {
+			method: 'PUT',
+			body: fileBuffer,
+			headers: { 'Content-Type': 'application/octet-stream' },
+		})
+
+		expect(response.status).toBe(500)
+
+		// Allow time for async cleanup to complete
+		await delay(100)
+
+		// Verify temp file was cleaned up
+		const filesInDir = fs.readdirSync(tmpDir)
+		const tempFiles = filesInDir.filter(
+			(f) => f.startsWith(customMapBasename) && f.includes('.download-'),
+		)
+		expect(tempFiles).toHaveLength(0)
+	})
+
+	it('should clean up temp file when close errors during upload', async (t) => {
+		const { localBaseUrl, customMapPath } = await startServer(t, {
+			customMapPath: nonExistentPath,
+		})
+		const tmpDir = path.dirname(customMapPath)
+		const customMapBasename = path.basename(customMapPath)
+
+		// Mock fs.createWriteStream to return a writable that writes successfully
+		// but errors on close (_final), simulating a flush/sync failure
+		const originalCreateWriteStream = fs.createWriteStream
+		const spy = vi.spyOn(fs, 'createWriteStream').mockImplementation(
+			(...args: any[]) => {
+				const stream = originalCreateWriteStream.apply(fs, args as any)
+				stream._final = (
+					callback: (error?: Error | null) => void,
+				) => {
+					callback(new Error('EIO: i/o error'))
+				}
+				return stream
+			},
+		)
+		t.onTestFinished(() => spy.mockRestore())
+
+		const fileBuffer = fs.readFileSync(OSM_BRIGHT_Z6)
+		const response = await fetch(`${localBaseUrl}/maps/custom`, {
+			method: 'PUT',
+			body: fileBuffer,
+			headers: { 'Content-Type': 'application/octet-stream' },
+		})
+
+		expect(response.status).toBe(500)
+
+		// Allow time for async cleanup to complete
+		await delay(100)
+
+		// Verify temp file was cleaned up
+		const filesInDir = fs.readdirSync(tmpDir)
+		const tempFiles = filesInDir.filter(
+			(f) => f.startsWith(customMapBasename) && f.includes('.download-'),
+		)
+		expect(tempFiles).toHaveLength(0)
 	})
 
 	it('should not leave temp files after successful upload', async (t) => {
