@@ -98,6 +98,11 @@ const errorsList = [
 		message: 'Invalid map file',
 		status: 400,
 	},
+	{
+		code: 'MAP_WRITE_ERROR',
+		message: 'Failed to write map data',
+		status: 500,
+	},
 
 	// Generic errors
 	{

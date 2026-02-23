@@ -603,6 +603,8 @@ describe('Map Upload', () => {
 		})
 
 		expect(response.status).toBe(500)
+		const error = await response.json()
+		expect(error).toHaveProperty('code', 'MAP_WRITE_ERROR')
 
 		// Allow time for async cleanup to complete
 		await delay(100)
@@ -646,6 +648,8 @@ describe('Map Upload', () => {
 		})
 
 		expect(response.status).toBe(500)
+		const error = await response.json()
+		expect(error).toHaveProperty('code', 'MAP_WRITE_ERROR')
 
 		// Allow time for async cleanup to complete
 		await delay(100)
