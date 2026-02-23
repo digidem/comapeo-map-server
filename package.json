@@ -1,6 +1,6 @@
 {
 	"name": "@comapeo/map-server",
-	"version": "1.0.0-pre.7",
+	"version": "1.0.0-pre.8",
 	"type": "module",
 	"exports": {
 		".": {
