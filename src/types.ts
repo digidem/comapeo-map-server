@@ -105,6 +105,16 @@ const MapInfo = T.Object({
 	}),
 })
 
+export const MapInfoResponse = T.Object({
+	created: T.Number({
+		description: 'Timestamp (ms since epoch) when the map was created',
+	}),
+	size: T.Number({ description: 'Estimated size of the map data in bytes' }),
+	name: T.String({ description: 'The name of the map' }),
+})
+
+export type MapInfoResponse = Static<typeof MapInfoResponse>
+
 const MapShareBase = T.Intersect([
 	T.Object({
 		receiverDeviceId: T.String({
@@ -126,6 +136,9 @@ export type MapShareState = DistributiveIntersection<
 	Static<typeof MapShareStateUpdate>
 >
 
+/**
+ * @deprecated We don't yet return this type from any API, and it may be removed in a future release. Use MapInfoResponse instead.
+ */
 export type MapInfo = Static<typeof MapInfo>
 
 export type FetchContext = {

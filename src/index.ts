@@ -20,6 +20,7 @@ export { CUSTOM_MAP_ID, DEFAULT_MAP_ID } from './lib/constants.js'
 
 export type {
 	MapInfo,
+	MapInfoResponse,
 	MapShareState,
 	MapShareStateUpdate,
 	DownloadStateUpdate,

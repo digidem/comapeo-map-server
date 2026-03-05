@@ -6,8 +6,10 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
 import { Reader } from 'styled-map-package'
+import Value from 'typebox/value'
 import { describe, it, expect, vi } from 'vitest'
 
+import { MapInfoResponse } from '../src/types.js'
 import {
 	DEMOTILES_Z2,
 	goOffline,
@@ -60,6 +62,7 @@ describe('Maps API', () => {
 			const response = await fetch(`${localBaseUrl}/maps/custom/info`)
 			expect(response.status).toBe(200)
 			const info = await response.json()
+			expect(Value.Check(MapInfoResponse, info)).toBe(true)
 			expect(info).toHaveProperty('created')
 			expect(info).toHaveProperty('size')
 			expect(info).toHaveProperty('name')
@@ -73,6 +76,7 @@ describe('Maps API', () => {
 			const response = await fetch(`${localBaseUrl}/maps/fallback/info`)
 			expect(response.status).toBe(200)
 			const info = await response.json()
+			expect(Value.Check(MapInfoResponse, info)).toBe(true)
 			expect(info).toHaveProperty('created')
 			expect(info).toHaveProperty('size')
 			expect(info).toHaveProperty('name')
@@ -580,8 +584,9 @@ describe('Map Upload', () => {
 		// Mock fs.createWriteStream to return a writable that errors on write,
 		// simulating a disk-full scenario
 		const originalCreateWriteStream = fs.createWriteStream
-		const spy = vi.spyOn(fs, 'createWriteStream').mockImplementation(
-			(...args: any[]) => {
+		const spy = vi
+			.spyOn(fs, 'createWriteStream')
+			.mockImplementation((...args: any[]) => {
 				const stream = originalCreateWriteStream.apply(fs, args as any)
 				stream._write = (
 					_chunk: any,
@@ -591,8 +596,7 @@ describe('Map Upload', () => {
 					callback(new Error('ENOSPC: no space left on device'))
 				}
 				return stream
-			},
-		)
+			})
 		t.onTestFinished(() => spy.mockRestore())
 
 		const fileBuffer = fs.readFileSync(OSM_BRIGHT_Z6)
@@ -627,17 +631,15 @@ describe('Map Upload', () => {
 		// Mock fs.createWriteStream to return a writable that writes successfully
 		// but errors on close (_final), simulating a flush/sync failure
 		const originalCreateWriteStream = fs.createWriteStream
-		const spy = vi.spyOn(fs, 'createWriteStream').mockImplementation(
-			(...args: any[]) => {
+		const spy = vi
+			.spyOn(fs, 'createWriteStream')
+			.mockImplementation((...args: any[]) => {
 				const stream = originalCreateWriteStream.apply(fs, args as any)
-				stream._final = (
-					callback: (error?: Error | null) => void,
-				) => {
+				stream._final = (callback: (error?: Error | null) => void) => {
 					callback(new Error('EIO: i/o error'))
 				}
 				return stream
-			},
-		)
+			})
 		t.onTestFinished(() => spy.mockRestore())
 
 		const fileBuffer = fs.readFileSync(OSM_BRIGHT_Z6)
