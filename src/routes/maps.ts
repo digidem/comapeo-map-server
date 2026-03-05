@@ -10,6 +10,7 @@ import {
 } from '../lib/constants.js'
 import { errors } from '../lib/errors.js'
 import { addTrailingSlash, noop } from '../lib/utils.js'
+import type { MapInfoResponse } from '../types.js'
 
 type MapRequest = IRequestStrict & {
 	params: {
@@ -27,14 +28,17 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 
 	const router = IttyRouter<IRequestStrict>({ base })
 
-	router.get<MapRequest>(`/:mapId/info`, async (request) => {
-		const info = await ctx.getMapInfo(request.params.mapId)
-		return {
-			created: info.mapCreatedAt,
-			size: info.estimatedSizeBytes,
-			name: info.mapName,
-		}
-	})
+	router.get<MapRequest>(
+		`/:mapId/info`,
+		async (request): Promise<MapInfoResponse> => {
+			const info = await ctx.getMapInfo(request.params.mapId)
+			return {
+				created: info.mapCreatedAt,
+				size: info.estimatedSizeBytes,
+				name: info.mapName,
+			}
+		},
+	)
 
 	const uploadHandler: RequestHandler<MapRequest> = async (request) => {
 		const writable = ctx.createMapWritableStream(request.params.mapId)
