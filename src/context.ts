@@ -4,7 +4,7 @@ import path from 'node:path'
 import { Readable, Writable } from 'node:stream'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { Reader } from 'styled-map-package'
+import { Reader } from 'styled-map-package-api/reader'
 import type { SetRequired } from 'type-fest'
 
 import type { ServerOptions } from './index.js'
@@ -187,6 +187,16 @@ export class Context {
 				}
 			},
 		})
+	}
+	async close() {
+		const closingPromises: Promise<void>[] = []
+		for (const [, readerPromise] of this.#mapReaders) {
+			closingPromises.push(
+				readerPromise.then((reader) => reader.close()).catch(noop),
+			)
+		}
+		this.#mapReaders.clear()
+		await Promise.all(closingPromises)
 	}
 	/**
 	 * Deletes the map file for the specified map ID.

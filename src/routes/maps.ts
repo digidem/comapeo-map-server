@@ -1,6 +1,6 @@
 import { IRequestStrict, IttyRouter, type RequestHandler } from 'itty-router'
 import Mutex from 'p-mutex'
-import { createServer as createSmpServer } from 'styled-map-package/server'
+import { createServer as createSmpServer } from 'styled-map-package-api/server'
 
 import type { Context } from '../context.js'
 import {
