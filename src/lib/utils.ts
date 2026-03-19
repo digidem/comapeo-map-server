@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 
 import { randomBytes } from 'crypto'
-import type { SMPStyle } from 'styled-map-package'
+import type { SMPStyle } from 'styled-map-package-api'
 
 import type { BBox } from '../types.js'
 

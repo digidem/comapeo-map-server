@@ -5,7 +5,7 @@ import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
-import { Reader } from 'styled-map-package'
+import { Reader } from 'styled-map-package-api/reader'
 import Value from 'typebox/value'
 import { describe, it, expect, vi } from 'vitest'
 
@@ -403,6 +403,7 @@ describe('Map Upload', () => {
 		const expectedStyle = await reader.getStyle(
 			new URL('/maps/custom/', localBaseUrl).toString(),
 		)
+		await reader.close()
 		const fileBuffer = fs.readFileSync(OSM_BRIGHT_Z6)
 
 		const uploadResponse = await fetch(`${localBaseUrl}/maps/custom`, {
@@ -431,6 +432,7 @@ describe('Map Upload', () => {
 		const expectedStyle = await reader.getStyle(
 			new URL('/maps/custom/', localBaseUrl).toString(),
 		)
+		await reader.close()
 
 		expect(style1).not.toEqual(expectedStyle)
 
@@ -504,6 +506,7 @@ describe('Map Upload', () => {
 		const expectedStyle = await reader.getStyle(
 			new URL('/maps/custom/', localBaseUrl).toString(),
 		)
+		await reader.close()
 
 		const uploadResponse = await fetch(`${localBaseUrl}/maps/custom`, {
 			method: 'PUT',
@@ -535,6 +538,7 @@ describe('Map Upload', () => {
 		const expectedStyle = await reader.getStyle(
 			new URL('/maps/custom/', localBaseUrl).toString(),
 		)
+		await reader.close()
 		// initially no custom map
 		const initialResponse = await fetch(
 			`${localBaseUrl}/maps/custom/style.json`,

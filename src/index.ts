@@ -128,6 +128,7 @@ export function createServer(options: ServerOptions) {
 				once(localHttpServer, 'close'),
 				once(secretStreamServer, 'close'),
 			])
+			await context.close()
 			// Reset deferred listen for potential restart with different ports
 			deferredListen = pDefer<ListenResult>()
 		},
