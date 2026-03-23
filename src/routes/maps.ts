@@ -1,5 +1,9 @@
 import { IRequestStrict, IttyRouter, type RequestHandler } from 'itty-router'
 import Mutex from 'p-mutex'
+import {
+	emptyTileFallback,
+	emptyGlyphFallback,
+} from 'styled-map-package-api/fallbacks'
 import { createServer as createSmpServer } from 'styled-map-package-api/server'
 
 import type { Context } from '../context.js'
@@ -24,6 +28,8 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 
 	const smpServer = createSmpServer({
 		base: `${base}:mapId/`,
+		fallbackGlyph: emptyGlyphFallback,
+		fallbackTile: emptyTileFallback,
 	})
 
 	const router = IttyRouter<IRequestStrict>({ base })
