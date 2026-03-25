@@ -78,6 +78,9 @@ export class MapShare extends TypedEventTarget<
 	decline(
 		reason: Extract<MapShareStateUpdate, { status: 'declined' }>['reason'],
 	) {
+		if (this.#state.status === 'canceled') {
+			throw new errors.MAP_SHARE_CANCELED()
+		}
 		if (this.#state.status !== 'pending') {
 			throw new errors.DECLINE_SHARE_NOT_PENDING(
 				`Cannot decline: share status is '${this.#state.status}'`,

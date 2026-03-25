@@ -589,7 +589,7 @@ describe('Map Shares and Downloads', () => {
 				expect(events.at(-1)).toHaveProperty('error.message')
 			})
 
-			it('should reject decline on non-pending share', async (t) => {
+			it('should return MAP_SHARE_CANCELED when declining a canceled share', async (t) => {
 				const { createShare, sender, receiver } = await startServers(t)
 
 				const share = await createShare().json()
@@ -609,7 +609,7 @@ describe('Map Shares and Downloads', () => {
 				)
 				expect(declineResponse.status).toBe(409)
 				const declineError = await declineResponse.json()
-				expect(declineError).toHaveProperty('code', 'DECLINE_SHARE_NOT_PENDING')
+				expect(declineError).toHaveProperty('code', 'MAP_SHARE_CANCELED')
 			})
 
 			it('should return 404 when declining non-existent share', async (t) => {
@@ -1271,7 +1271,7 @@ describe('Map Shares and Downloads', () => {
 				const { createShare, sender, receiver } = await startServers(t)
 				const share = await createShare().json()
 
-				// First, cancel the share so decline will fail with DECLINE_SHARE_NOT_PENDING
+				// First, cancel the share so decline will fail with MAP_SHARE_CANCELED
 				await sender.post(`mapShares/${share.shareId}/cancel`)
 
 				// Now try to decline remotely - should get the error passed through
@@ -1288,7 +1288,7 @@ describe('Map Shares and Downloads', () => {
 
 				expect(response.status).toBe(409)
 				const error = await response.json()
-				expect(error).toHaveProperty('code', 'DECLINE_SHARE_NOT_PENDING')
+				expect(error).toHaveProperty('code', 'MAP_SHARE_CANCELED')
 			})
 		})
 	})

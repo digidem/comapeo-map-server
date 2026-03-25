@@ -72,6 +72,11 @@ const errorsList = [
 		status: 409,
 	},
 	{
+		code: 'MAP_SHARE_CANCELED',
+		message: 'Map share has been canceled by the sender',
+		status: 409,
+	},
+	{
 		code: 'DECLINE_SHARE_NOT_PENDING',
 		message: 'Cannot decline: share is not pending',
 		status: 409,
