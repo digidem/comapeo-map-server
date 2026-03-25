@@ -126,14 +126,29 @@ export class Context {
 			throw new errors.MAP_NOT_FOUND(`Map ID not found: ${mapId}`)
 		}
 		const tempPath = `${fileURLToPath(mapFileUrl)}.download-${tmpCounter++}`
-		const writable = Writable.toWeb(fs.createWriteStream(tempPath))
+		const nodeWriteStream = fs.createWriteStream(tempPath)
+		const writable = Writable.toWeb(nodeWriteStream)
 		const writer = writable.getWriter()
+
+		// Ensure the underlying file descriptor is fully released before deleting
+		// the temp file. On Windows, files cannot be deleted while a handle is
+		// open, and Writable.toWeb()'s abort() may not wait for the fd to close.
+		const closeAndUnlink = async () => {
+			if (!nodeWriteStream.closed) {
+				await new Promise<void>((resolve) => {
+					nodeWriteStream.once('close', resolve)
+					if (!nodeWriteStream.destroyed) nodeWriteStream.destroy()
+				})
+			}
+			await fsPromises.unlink(tempPath).catch(noop)
+		}
+
 		return new WritableStream({
 			async write(chunk) {
 				try {
 					await writer.write(chunk)
 				} catch (err) {
-					await fsPromises.unlink(tempPath).catch(noop)
+					await closeAndUnlink()
 					throw new errors.MAP_WRITE_ERROR({
 						message: err instanceof Error ? err.message : undefined,
 						cause: err,
@@ -145,7 +160,7 @@ export class Context {
 				try {
 					await writer.close()
 				} catch (err) {
-					await fsPromises.unlink(tempPath).catch(noop)
+					await closeAndUnlink()
 					throw new errors.MAP_WRITE_ERROR({
 						message: err instanceof Error ? err.message : undefined,
 						cause: err,
@@ -183,7 +198,7 @@ export class Context {
 				try {
 					await writer.abort(err)
 				} finally {
-					await fsPromises.unlink(tempPath).catch(noop)
+					await closeAndUnlink()
 				}
 			},
 		})
