@@ -28,7 +28,17 @@ export type MapboxStyleSpecification = Omit<
 	projection?: MapboxProjectionSpecification
 }
 
-export function transformMapboxStyleInline(
+/**
+ * Updates a provided style to be compatible with MapLibre. Note that this mutates the input.
+ * If it is preferable to preserve the original value, create a new value and use that for the input instead.
+ *
+ * @example
+ * ```ts
+ * const cloned = structuredClone(style)
+ * const result = transformStyle(cloned)
+ * ```
+ */
+export function transformStyle(
 	style: MapboxStyleSpecification | MaplibreStyleSpecification,
 	options?: { accessToken?: string },
 ): asserts style is MaplibreStyleSpecification {
@@ -81,17 +91,6 @@ export function transformMapboxStyleInline(
 			style.projection = undefined
 		}
 	}
-}
-
-export function transformMapboxStyle(
-	inputStyle: MapboxStyleSpecification | MaplibreStyleSpecification,
-	options?: { accessToken?: string },
-): MaplibreStyleSpecification {
-	const outputStyle = structuredClone(inputStyle)
-
-	transformMapboxStyleInline(outputStyle, options)
-
-	return outputStyle
 }
 
 function isMapboxURI(url: string): url is MapboxURI {

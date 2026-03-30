@@ -2,15 +2,14 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec'
-import { describe, expect, it, test } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import {
-	transformMapboxStyleInline,
-	transformMapboxStyle,
-	MapboxStyleSpecification,
-} from '../src/lib/mapbox.js'
+	transformStyle,
+	type MapboxStyleSpecification,
+} from '../src/lib/style.js'
 
-describe('transformMapboxStyleInline()', () => {
+describe('transformStyle()', () => {
 	it('does nothing when input has no mapbox URIs', () => {
 		const input: StyleSpecification = {
 			version: 8,
@@ -31,7 +30,7 @@ describe('transformMapboxStyleInline()', () => {
 
 		const before = structuredClone(input)
 
-		transformMapboxStyleInline(input)
+		transformStyle(input)
 
 		expect(input).toStrictEqual(before)
 	})
@@ -39,7 +38,7 @@ describe('transformMapboxStyleInline()', () => {
 	it('throws on bad inputs', () => {
 		expect(
 			() =>
-				transformMapboxStyleInline({
+				transformStyle({
 					version: 8,
 					sources: {},
 					layers: [],
@@ -50,7 +49,7 @@ describe('transformMapboxStyleInline()', () => {
 
 		expect(
 			() =>
-				transformMapboxStyleInline({
+				transformStyle({
 					version: 8,
 					sources: {},
 					layers: [],
@@ -71,7 +70,7 @@ describe('transformMapboxStyleInline()', () => {
 			),
 		)
 
-		transformMapboxStyleInline(streetsV12)
+		transformStyle(streetsV12)
 
 		expect(streetsV12.glyphs).toStrictEqual(
 			'https://api.mapbox.com/fonts/v1/mapbox/{fontstack}/{range}.pbf',
@@ -101,7 +100,7 @@ describe('transformMapboxStyleInline()', () => {
 
 		const accessToken = 'abc_123'
 
-		transformMapboxStyleInline(streetsV12, { accessToken })
+		transformStyle(streetsV12, { accessToken })
 
 		expect(streetsV12.glyphs).toStrictEqual(
 			'https://api.mapbox.com/fonts/v1/mapbox/{fontstack}/{range}.pbf?access_token=abc_123',
@@ -136,7 +135,7 @@ describe('transformMapboxStyleInline()', () => {
 				projection: { name: p },
 			}
 
-			transformMapboxStyleInline(input)
+			transformStyle(input)
 
 			expect(input.projection).toStrictEqual({ type: p })
 		}
@@ -149,21 +148,9 @@ describe('transformMapboxStyleInline()', () => {
 				projection: { name: p },
 			}
 
-			transformMapboxStyleInline(input)
+			transformStyle(input)
 
 			expect(input.projection).toBeUndefined()
 		}
 	})
-})
-
-test('transformMapboxStyle() returns new value', () => {
-	const input: StyleSpecification = {
-		version: 8,
-		sources: {},
-		layers: [],
-	}
-
-	const result = transformMapboxStyle(input)
-
-	expect(result).not.toBe(input)
 })
