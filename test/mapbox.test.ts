@@ -7,6 +7,7 @@ import { describe, expect, it, test } from 'vitest'
 import {
 	transformMapboxStyleInline,
 	transformMapboxStyle,
+	MapboxStyleSpecification,
 } from '../src/lib/mapbox.js'
 
 describe('transformMapboxStyleInline()', () => {
@@ -116,6 +117,42 @@ describe('transformMapboxStyleInline()', () => {
 				url: 'https://api.mapbox.com/v4/mapbox.mapbox-streets-v8,mapbox.mapbox-terrain-v2,mapbox.mapbox-bathymetry-v2.json?access_token=abc_123',
 			},
 		})
+	})
+
+	it('ports projection property', async () => {
+		const portableProjections = ['mercator', 'globe'] as const
+		const nonportableProjections = [
+			'equalEarth',
+			'equirectangular',
+			'naturalEarth',
+			'winkelTripel',
+		] as const
+
+		for (const p of portableProjections) {
+			const input: MapboxStyleSpecification = {
+				version: 8,
+				sources: {},
+				layers: [],
+				projection: { name: p },
+			}
+
+			transformMapboxStyleInline(input)
+
+			expect(input.projection).toStrictEqual({ type: p })
+		}
+
+		for (const p of nonportableProjections) {
+			const input: MapboxStyleSpecification = {
+				version: 8,
+				sources: {},
+				layers: [],
+				projection: { name: p },
+			}
+
+			transformMapboxStyleInline(input)
+
+			expect(input.projection).toBeUndefined()
+		}
 	})
 })
 

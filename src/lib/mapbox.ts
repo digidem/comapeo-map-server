@@ -21,7 +21,7 @@ type MapboxProjectionSpecification =
 	  }
 
 // Non-exhaustive alternative to what's provided in @mapbox/mapbox-gl-style-spec
-type MapboxStyleSpecification = Omit<
+export type MapboxStyleSpecification = Omit<
 	MaplibreStyleSpecification,
 	'projection'
 > & {
@@ -71,12 +71,15 @@ export function transformMapboxStyleInline(
 	// As of 2026-03-30, the only values from Mapbox that port over are `mercator` and `globe`.
 	// https://docs.mapbox.com/style-spec/reference/projection/#name
 	// https://maplibre.org/maplibre-style-spec/types/#projectiondefinition
-	if (
-		style.projection &&
-		'name' in style.projection &&
-		(style.projection.name === 'mercator' || style.projection.name === 'globe')
-	) {
-		style.projection = { type: style.projection.name }
+	if (style.projection && 'name' in style.projection) {
+		if (
+			style.projection.name === 'mercator' ||
+			style.projection.name === 'globe'
+		) {
+			style.projection = { type: style.projection.name }
+		} else {
+			style.projection = undefined
+		}
 	}
 }
 
