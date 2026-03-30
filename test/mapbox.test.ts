@@ -92,7 +92,7 @@ describe('transformMapboxStyle()', () => {
 
 		const accessToken = 'abc_123'
 
-		const result = transformMapboxStyle(streetsV12, accessToken)
+		const result = transformMapboxStyle(streetsV12, { accessToken })
 
 		expect(result.glyphs).toStrictEqual(
 			'https://api.mapbox.com/fonts/v1/mapbox/{fontstack}/{range}.pbf?access_token=abc_123',

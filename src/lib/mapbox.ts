@@ -30,26 +30,35 @@ type MapboxStyleSpecification = Omit<
 
 export function transformMapboxStyle(
 	inputStyle: MapboxStyleSpecification | MaplibreStyleSpecification,
-	accessToken?: string,
+	options?: { accessToken?: string },
 ): MaplibreStyleSpecification {
 	const outputStyle = structuredClone(inputStyle)
 
 	// Update sprite
 	if (typeof outputStyle.sprite === 'string') {
 		if (isMapboxURI(outputStyle.sprite)) {
-			outputStyle.sprite = normalizeSprite(outputStyle.sprite, accessToken)
+			outputStyle.sprite = normalizeSprite(
+				outputStyle.sprite,
+				options?.accessToken,
+			)
 		}
 	} else if (Array.isArray(outputStyle.sprite)) {
 		outputStyle.sprite = outputStyle.sprite.map((sprite) => {
 			return isMapboxURI(sprite.url)
-				? { id: sprite.id, url: normalizeSprite(sprite.url, accessToken) }
+				? {
+						id: sprite.id,
+						url: normalizeSprite(sprite.url, options?.accessToken),
+					}
 				: sprite
 		})
 	}
 
 	// Update glyphs
 	if (outputStyle.glyphs && isMapboxURI(outputStyle.glyphs)) {
-		outputStyle.glyphs = normalizeGlyphs(outputStyle.glyphs, accessToken)
+		outputStyle.glyphs = normalizeGlyphs(
+			outputStyle.glyphs,
+			options?.accessToken,
+		)
 	}
 
 	// Update sources
@@ -62,7 +71,7 @@ export function transformMapboxStyle(
 				typeof source.url === 'string' &&
 				isMapboxURI(source.url)
 			) {
-				source.url = normalizeSource(source.url, accessToken)
+				source.url = normalizeSource(source.url, options?.accessToken)
 			}
 		}
 	}
