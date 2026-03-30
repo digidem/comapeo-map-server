@@ -74,6 +74,7 @@
     "*.{js,css,md}": "prettier --write"
   },
   "dependencies": {
+    "@maplibre/maplibre-gl-style-spec": "^24.7.0",
     "@whatwg-node/server": "^0.10.17",
     "itty-router": "^5.0.22",
     "p-defer": "^4.0.1",
