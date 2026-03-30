@@ -103,17 +103,17 @@ describe('transformStyle()', () => {
 		transformStyle(streetsV12, { accessToken })
 
 		expect(streetsV12.glyphs).toStrictEqual(
-			'https://api.mapbox.com/fonts/v1/mapbox/{fontstack}/{range}.pbf?access_token=abc_123',
+			`https://api.mapbox.com/fonts/v1/mapbox/{fontstack}/{range}.pbf?access_token=${accessToken}`,
 		)
 
 		expect(streetsV12.sprite).toStrictEqual(
-			'https://api.mapbox.com/styles/v1/mapbox/streets-v12/sprite?access_token=abc_123',
+			`https://api.mapbox.com/styles/v1/mapbox/streets-v12/sprite?access_token=${accessToken}`,
 		)
 
 		expect(streetsV12.sources).toStrictEqual({
 			composite: {
 				type: 'vector',
-				url: 'https://api.mapbox.com/v4/mapbox.mapbox-streets-v8,mapbox.mapbox-terrain-v2,mapbox.mapbox-bathymetry-v2.json?access_token=abc_123',
+				url: `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8,mapbox.mapbox-terrain-v2,mapbox.mapbox-bathymetry-v2.json?access_token=${accessToken}`,
 			},
 		})
 	})
