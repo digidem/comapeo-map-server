@@ -28,22 +28,17 @@ type MapboxStyleSpecification = Omit<
 	projection?: MapboxProjectionSpecification
 }
 
-export function transformMapboxStyle(
-	inputStyle: MapboxStyleSpecification | MaplibreStyleSpecification,
+export function transformMapboxStyleInline(
+	style: MapboxStyleSpecification | MaplibreStyleSpecification,
 	options?: { accessToken?: string },
-): MaplibreStyleSpecification {
-	const outputStyle = structuredClone(inputStyle)
-
+): asserts style is MaplibreStyleSpecification {
 	// Update sprite
-	if (typeof outputStyle.sprite === 'string') {
-		if (isMapboxURI(outputStyle.sprite)) {
-			outputStyle.sprite = normalizeSprite(
-				outputStyle.sprite,
-				options?.accessToken,
-			)
+	if (typeof style.sprite === 'string') {
+		if (isMapboxURI(style.sprite)) {
+			style.sprite = normalizeSprite(style.sprite, options?.accessToken)
 		}
-	} else if (Array.isArray(outputStyle.sprite)) {
-		outputStyle.sprite = outputStyle.sprite.map((sprite) => {
+	} else if (Array.isArray(style.sprite)) {
+		style.sprite = style.sprite.map((sprite) => {
 			return isMapboxURI(sprite.url)
 				? {
 						id: sprite.id,
@@ -54,17 +49,14 @@ export function transformMapboxStyle(
 	}
 
 	// Update glyphs
-	if (outputStyle.glyphs && isMapboxURI(outputStyle.glyphs)) {
-		outputStyle.glyphs = normalizeGlyphs(
-			outputStyle.glyphs,
-			options?.accessToken,
-		)
+	if (style.glyphs && isMapboxURI(style.glyphs)) {
+		style.glyphs = normalizeGlyphs(style.glyphs, options?.accessToken)
 	}
 
 	// Update sources
-	if (outputStyle.sources) {
-		for (const sourceId of Object.keys(outputStyle.sources)) {
-			const source = outputStyle.sources[sourceId]
+	if (style.sources) {
+		for (const sourceId of Object.keys(style.sources)) {
+			const source = style.sources[sourceId]
 
 			if (
 				'url' in source &&
@@ -80,15 +72,22 @@ export function transformMapboxStyle(
 	// https://docs.mapbox.com/style-spec/reference/projection/#name
 	// https://maplibre.org/maplibre-style-spec/types/#projectiondefinition
 	if (
-		outputStyle.projection &&
-		'name' in outputStyle.projection &&
-		(outputStyle.projection.name === 'mercator' ||
-			outputStyle.projection.name === 'globe')
+		style.projection &&
+		'name' in style.projection &&
+		(style.projection.name === 'mercator' || style.projection.name === 'globe')
 	) {
-		outputStyle.projection = { type: outputStyle.projection.name }
+		style.projection = { type: style.projection.name }
 	}
+}
 
-	// @ts-expect-error Not worth trying to fix every compat issue
+export function transformMapboxStyle(
+	inputStyle: MapboxStyleSpecification | MaplibreStyleSpecification,
+	options?: { accessToken?: string },
+): MaplibreStyleSpecification {
+	const outputStyle = structuredClone(inputStyle)
+
+	transformMapboxStyleInline(outputStyle, options)
+
 	return outputStyle
 }
 

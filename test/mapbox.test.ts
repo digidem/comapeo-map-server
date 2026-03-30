@@ -2,14 +2,18 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec'
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it, test } from 'vitest'
 
-import { transformMapboxStyle } from '../src/lib/mapbox.js'
+import {
+	transformMapboxStyleInline,
+	transformMapboxStyle,
+} from '../src/lib/mapbox.js'
 
-describe('transformMapboxStyle()', () => {
+describe('transformMapboxStyleInline()', () => {
 	it('does nothing when input has no mapbox URIs', () => {
-		// @ts-expect-error
 		const input: StyleSpecification = {
+			version: 8,
+			layers: [],
 			glyphs: 'https://example.com/glyphs',
 			sprite: 'https://example.com/sprite',
 			sources: {
@@ -24,30 +28,34 @@ describe('transformMapboxStyle()', () => {
 			},
 		}
 
-		const result = transformMapboxStyle(input)
+		const before = structuredClone(input)
 
-		expect(result).toStrictEqual(input)
+		transformMapboxStyleInline(input)
+
+		expect(input).toStrictEqual(before)
 	})
 
 	it('throws on bad inputs', () => {
 		expect(
 			() =>
-				transformMapboxStyle(
-					// @ts-expect-error
-					{ glyphs: 'mapbox://foo/a/{fontstack}/{range}.pbf' },
-				),
+				transformMapboxStyleInline({
+					version: 8,
+					sources: {},
+					layers: [],
+					glyphs: 'mapbox://foo/a/{fontstack}/{range}.pbf',
+				}),
 			'invalid glyphs URI',
 		).toThrowError('Expected URL for font resource. Received foo')
 
 		expect(
 			() =>
-				transformMapboxStyle(
-					// @ts-expect-error
-					{
-						glyphs: 'mapbox://fonts/a/{fontstack}/{range}.pbf',
-						sprite: 'mapbox://foo/a/b',
-					},
-				),
+				transformMapboxStyleInline({
+					version: 8,
+					sources: {},
+					layers: [],
+					glyphs: 'mapbox://fonts/a/{fontstack}/{range}.pbf',
+					sprite: 'mapbox://foo/a/b',
+				}),
 			'invalid sprite URI',
 		).toThrowError('Expected URL for sprite resource. Received foo')
 	})
@@ -62,17 +70,17 @@ describe('transformMapboxStyle()', () => {
 			),
 		)
 
-		const result = transformMapboxStyle(streetsV12)
+		transformMapboxStyleInline(streetsV12)
 
-		expect(result.glyphs).toStrictEqual(
+		expect(streetsV12.glyphs).toStrictEqual(
 			'https://api.mapbox.com/fonts/v1/mapbox/{fontstack}/{range}.pbf',
 		)
 
-		expect(result.sprite).toStrictEqual(
+		expect(streetsV12.sprite).toStrictEqual(
 			'https://api.mapbox.com/styles/v1/mapbox/streets-v12/sprite',
 		)
 
-		expect(result.sources).toStrictEqual({
+		expect(streetsV12.sources).toStrictEqual({
 			composite: {
 				type: 'vector',
 				url: 'https://api.mapbox.com/v4/mapbox.mapbox-streets-v8,mapbox.mapbox-terrain-v2,mapbox.mapbox-bathymetry-v2.json',
@@ -92,21 +100,33 @@ describe('transformMapboxStyle()', () => {
 
 		const accessToken = 'abc_123'
 
-		const result = transformMapboxStyle(streetsV12, { accessToken })
+		transformMapboxStyleInline(streetsV12, { accessToken })
 
-		expect(result.glyphs).toStrictEqual(
+		expect(streetsV12.glyphs).toStrictEqual(
 			'https://api.mapbox.com/fonts/v1/mapbox/{fontstack}/{range}.pbf?access_token=abc_123',
 		)
 
-		expect(result.sprite).toStrictEqual(
+		expect(streetsV12.sprite).toStrictEqual(
 			'https://api.mapbox.com/styles/v1/mapbox/streets-v12/sprite?access_token=abc_123',
 		)
 
-		expect(result.sources).toStrictEqual({
+		expect(streetsV12.sources).toStrictEqual({
 			composite: {
 				type: 'vector',
 				url: 'https://api.mapbox.com/v4/mapbox.mapbox-streets-v8,mapbox.mapbox-terrain-v2,mapbox.mapbox-bathymetry-v2.json?access_token=abc_123',
 			},
 		})
 	})
+})
+
+test('transformMapboxStyle() returns new value', () => {
+	const input: StyleSpecification = {
+		version: 8,
+		sources: {},
+		layers: [],
+	}
+
+	const result = transformMapboxStyle(input)
+
+	expect(result).not.toBe(input)
 })
