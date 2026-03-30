@@ -1,13 +1,37 @@
-import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec'
+import type { StyleSpecification as MaplibreStyleSpecification } from '@maplibre/maplibre-gl-style-spec'
 
 const BASE_MAPBOX_API_URL = 'https://api.mapbox.com'
 
 type MapboxURI = `mapbox://${string}`
 
+type MapboxProjectionSpecification =
+	| {
+			name:
+				| 'equalEarth'
+				| 'equirectangular'
+				| 'globe'
+				| 'mercator'
+				| 'naturalEarth'
+				| 'winkelTripel'
+	  }
+	| {
+			name: 'albers' | 'lambertConformalConic'
+			center?: [number, number]
+			parallels?: [number, number]
+	  }
+
+// Non-exhaustive alternative to what's provided in @mapbox/mapbox-gl-style-spec
+type MapboxStyleSpecification = Omit<
+	MaplibreStyleSpecification,
+	'projection'
+> & {
+	projection?: MapboxProjectionSpecification
+}
+
 export function transformMapboxStyle(
-	inputStyle: StyleSpecification,
+	inputStyle: MapboxStyleSpecification | MaplibreStyleSpecification,
 	accessToken?: string,
-): StyleSpecification {
+): MaplibreStyleSpecification {
 	const outputStyle = structuredClone(inputStyle)
 
 	// Update sprite
@@ -18,10 +42,7 @@ export function transformMapboxStyle(
 	} else if (Array.isArray(outputStyle.sprite)) {
 		outputStyle.sprite = outputStyle.sprite.map((sprite) => {
 			return isMapboxURI(sprite.url)
-				? {
-						id: sprite.id,
-						url: normalizeSprite(sprite.url, accessToken),
-					}
+				? { id: sprite.id, url: normalizeSprite(sprite.url, accessToken) }
 				: sprite
 		})
 	}
@@ -46,6 +67,19 @@ export function transformMapboxStyle(
 		}
 	}
 
+	// As of 2026-03-30, the only values from Mapbox that port over are `mercator` and `globe`.
+	// https://docs.mapbox.com/style-spec/reference/projection/#name
+	// https://maplibre.org/maplibre-style-spec/types/#projectiondefinition
+	if (
+		outputStyle.projection &&
+		'name' in outputStyle.projection &&
+		(outputStyle.projection.name === 'mercator' ||
+			outputStyle.projection.name === 'globe')
+	) {
+		outputStyle.projection = { type: outputStyle.projection.name }
+	}
+
+	// @ts-expect-error Not worth trying to fix every compat issue
 	return outputStyle
 }
 
