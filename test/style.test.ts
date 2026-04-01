@@ -5,11 +5,11 @@ import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec'
 import { describe, expect, it } from 'vitest'
 
 import {
-	transformStyle,
+	normalizeStyle,
 	type MapboxStyleSpecification,
 } from '../src/lib/style.js'
 
-describe('transformStyle()', () => {
+describe('normalizeStyle()', () => {
 	it('does nothing when input has no mapbox URIs', () => {
 		const input: StyleSpecification = {
 			version: 8,
@@ -30,7 +30,7 @@ describe('transformStyle()', () => {
 
 		const before = structuredClone(input)
 
-		transformStyle(input)
+		normalizeStyle(input)
 
 		expect(input).toStrictEqual(before)
 	})
@@ -38,7 +38,7 @@ describe('transformStyle()', () => {
 	it('throws on bad inputs', () => {
 		expect(
 			() =>
-				transformStyle({
+				normalizeStyle({
 					version: 8,
 					sources: {},
 					layers: [],
@@ -49,7 +49,7 @@ describe('transformStyle()', () => {
 
 		expect(
 			() =>
-				transformStyle({
+				normalizeStyle({
 					version: 8,
 					sources: {},
 					layers: [],
@@ -70,7 +70,7 @@ describe('transformStyle()', () => {
 			),
 		)
 
-		transformStyle(streetsV12)
+		normalizeStyle(streetsV12)
 
 		expect(streetsV12.glyphs).toStrictEqual(
 			'https://api.mapbox.com/fonts/v1/mapbox/{fontstack}/{range}.pbf',
@@ -100,7 +100,7 @@ describe('transformStyle()', () => {
 
 		const accessToken = 'abc_123'
 
-		transformStyle(streetsV12, { accessToken })
+		normalizeStyle(streetsV12, { accessToken })
 
 		expect(streetsV12.glyphs).toStrictEqual(
 			`https://api.mapbox.com/fonts/v1/mapbox/{fontstack}/{range}.pbf?access_token=${accessToken}`,
@@ -135,7 +135,7 @@ describe('transformStyle()', () => {
 				projection: { name: p },
 			}
 
-			transformStyle(input)
+			normalizeStyle(input)
 
 			expect(input.projection).toStrictEqual({ type: p })
 		}
@@ -148,7 +148,7 @@ describe('transformStyle()', () => {
 				projection: { name: p },
 			}
 
-			transformStyle(input)
+			normalizeStyle(input)
 
 			expect(input.projection).toBeUndefined()
 		}

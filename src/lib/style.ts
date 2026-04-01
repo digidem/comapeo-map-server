@@ -38,7 +38,7 @@ export type MapboxStyleSpecification = Omit<
  * const result = transformStyle(cloned)
  * ```
  */
-export function transformStyle(
+export function normalizeStyle(
 	style: MapboxStyleSpecification | MaplibreStyleSpecification,
 	options?: { accessToken?: string },
 ): asserts style is MaplibreStyleSpecification {
