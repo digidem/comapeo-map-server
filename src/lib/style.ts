@@ -110,6 +110,7 @@ function normalizeGlyphs(uri: MapboxURI, accessToken?: string) {
 		result.searchParams.set('access_token', accessToken)
 	}
 
+	// Need to preserve the placeholders (`{}`) used by the clients
 	return decodeURI(result.href)
 }
 
@@ -126,6 +127,7 @@ function normalizeSprite(uri: MapboxURI, accessToken?: string) {
 		result.searchParams.set('access_token', accessToken)
 	}
 
+	// Need to preserve the placeholders (`{}`) used by the clients
 	return decodeURI(result.href)
 }
 
