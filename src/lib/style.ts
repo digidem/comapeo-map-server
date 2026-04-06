@@ -37,30 +37,40 @@ export type MapboxStyleSpecification = Omit<
  * const cloned = structuredClone(style)
  * const result = transformStyle(cloned)
  * ```
+ *
+ * @returns Boolean indicating if changes were made to the input.
  */
 export function normalizeStyle(
 	style: MapboxStyleSpecification | MaplibreStyleSpecification,
 	options?: { accessToken?: string },
-): asserts style is MaplibreStyleSpecification {
+): style is MaplibreStyleSpecification {
+	let madeChanges = false
+
 	// Update sprite
 	if (typeof style.sprite === 'string') {
 		if (isMapboxURI(style.sprite)) {
 			style.sprite = normalizeSprite(style.sprite, options?.accessToken)
+			madeChanges = true
 		}
 	} else if (Array.isArray(style.sprite)) {
 		style.sprite = style.sprite.map((sprite) => {
-			return isMapboxURI(sprite.url)
-				? {
-						id: sprite.id,
-						url: normalizeSprite(sprite.url, options?.accessToken),
-					}
-				: sprite
+			if (isMapboxURI(sprite.url)) {
+				madeChanges = true
+
+				return {
+					id: sprite.id,
+					url: normalizeSprite(sprite.url, options?.accessToken),
+				}
+			} else {
+				return sprite
+			}
 		})
 	}
 
 	// Update glyphs
 	if (style.glyphs && isMapboxURI(style.glyphs)) {
 		style.glyphs = normalizeGlyphs(style.glyphs, options?.accessToken)
+		madeChanges = true
 	}
 
 	// Update sources
@@ -74,6 +84,7 @@ export function normalizeStyle(
 				isMapboxURI(source.url)
 			) {
 				source.url = normalizeSource(source.url, options?.accessToken)
+				madeChanges = true
 			}
 		}
 	}
@@ -90,7 +101,11 @@ export function normalizeStyle(
 		} else {
 			style.projection = undefined
 		}
+
+		madeChanges = true
 	}
+
+	return madeChanges
 }
 
 function isMapboxURI(url: string): url is MapboxURI {

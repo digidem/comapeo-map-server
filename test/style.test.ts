@@ -30,8 +30,9 @@ describe('normalizeStyle()', () => {
 
 		const before = structuredClone(input)
 
-		normalizeStyle(input)
+		const madeChanges = normalizeStyle(input)
 
+		expect(madeChanges).toBe(false)
 		expect(input).toStrictEqual(before)
 	})
 
@@ -70,7 +71,9 @@ describe('normalizeStyle()', () => {
 			),
 		)
 
-		normalizeStyle(streetsV12)
+		const madeChanges = normalizeStyle(streetsV12)
+
+		expect(madeChanges).toBe(true)
 
 		expect(streetsV12.glyphs).toStrictEqual(
 			'https://api.mapbox.com/fonts/v1/mapbox/{fontstack}/{range}.pbf',
@@ -100,7 +103,9 @@ describe('normalizeStyle()', () => {
 
 		const accessToken = 'abc_123'
 
-		normalizeStyle(streetsV12, { accessToken })
+		const madeChanges = normalizeStyle(streetsV12, { accessToken })
+
+		expect(madeChanges).toBe(true)
 
 		expect(streetsV12.glyphs).toStrictEqual(
 			`https://api.mapbox.com/fonts/v1/mapbox/{fontstack}/{range}.pbf?access_token=${accessToken}`,
@@ -135,7 +140,9 @@ describe('normalizeStyle()', () => {
 				projection: { name: p },
 			}
 
-			normalizeStyle(input)
+			const madeChanges = normalizeStyle(input)
+
+			expect(madeChanges).toBe(true)
 
 			expect(input.projection).toStrictEqual({ type: p })
 		}
@@ -148,7 +155,9 @@ describe('normalizeStyle()', () => {
 				projection: { name: p },
 			}
 
-			normalizeStyle(input)
+			const madeChanges = normalizeStyle(input)
+
+			expect(madeChanges).toBe(true)
 
 			expect(input.projection).toBeUndefined()
 		}
