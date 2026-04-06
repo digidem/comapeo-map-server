@@ -11,7 +11,8 @@ import {
 	FALLBACK_MAP_ID,
 } from '../lib/constants.js'
 import { errors } from '../lib/errors.js'
-import { addTrailingSlash, noop } from '../lib/utils.js'
+import { BASE_MAPBOX_API_URL, normalizeStyle } from '../lib/style.js'
+import { addTrailingSlash } from '../lib/utils.js'
 import type { MapInfoResponse } from '../types.js'
 
 type MapRequest = IRequestStrict & {
@@ -120,6 +121,25 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 	// if available, otherwise falls back to the online style or bundled fallback
 	const defaultMapHandler: RequestHandler = async (request) => {
 		const defaultOnlineStyleUrl = ctx.getDefaultOnlineStyleUrl()
+
+		// Can use `?mapbox_access_token=...` to override the access token used
+		// for upstream mapbox style request
+		if (defaultOnlineStyleUrl.toString().startsWith(BASE_MAPBOX_API_URL)) {
+			const accessTokenFromRequest = Array.isArray(
+				request.query['mapbox_access_token'],
+			)
+				? request.query['mapbox_access_token'][0]
+				: request.query['mapbox_access_token']
+
+			// Prioritize the access token from the request
+			if (accessTokenFromRequest) {
+				defaultOnlineStyleUrl.searchParams.set(
+					'access_token',
+					accessTokenFromRequest,
+				)
+			}
+		}
+
 		const styleUrls = [
 			new URL(`../${CUSTOM_MAP_ID}/style.json`, request.url),
 			defaultOnlineStyleUrl,
@@ -127,23 +147,47 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 		]
 
 		for (const url of styleUrls) {
-			let response: Response | void
-			if (url === defaultOnlineStyleUrl) {
-				response = await fetch(url).catch(noop)
-			} else {
-				// No need to go through the networking stack for local requests
-				response = await router.fetch(new Request(url)).catch(noop)
+			let response: Response | undefined
+			try {
+				if (url === defaultOnlineStyleUrl) {
+					response = await fetch(url)
+				} else {
+					// No need to go through the networking stack for local requests
+					response = await router.fetch(new Request(url))
+				}
+			} catch {
+				// no-op
 			}
-			response?.body?.cancel() // Close the connection
+
 			if (response && response.ok) {
-				return new Response(null, {
-					status: 302,
-					headers: {
-						location: url.toString(),
-						'access-control-allow-origin': '*',
-						'cache-control': 'no-cache',
-					},
+				const body = await response.json()
+
+				const madeChanges = normalizeStyle(body, {
+					accessToken:
+						defaultOnlineStyleUrl.searchParams.get('access_token') || undefined,
 				})
+
+				const baseHeaders = {
+					'access-control-allow-origin': '*',
+					'cache-control': 'no-cache',
+				} as const
+
+				if (madeChanges) {
+					return new Response(JSON.stringify(body), {
+						status: 200,
+						headers: baseHeaders,
+					})
+				} else {
+					return new Response(null, {
+						status: 302,
+						headers: {
+							...baseHeaders,
+							location: url.toString(),
+						},
+					})
+				}
+			} else {
+				response?.body?.cancel() // Close the connection
 			}
 		}
 

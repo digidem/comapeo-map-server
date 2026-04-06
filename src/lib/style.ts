@@ -1,6 +1,6 @@
 import type { StyleSpecification as MaplibreStyleSpecification } from '@maplibre/maplibre-gl-style-spec'
 
-const BASE_MAPBOX_API_URL = 'https://api.mapbox.com'
+export const BASE_MAPBOX_API_URL = 'https://api.mapbox.com' as const
 
 type MapboxURI = `mapbox://${string}`
 
