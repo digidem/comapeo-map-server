@@ -11,7 +11,7 @@ import {
 	FALLBACK_MAP_ID,
 } from '../lib/constants.js'
 import { errors } from '../lib/errors.js'
-import { BASE_MAPBOX_API_URL, normalizeStyle } from '../lib/style.js'
+import { BASE_MAPBOX_API_URL, transformUrls } from '../lib/style.js'
 import { addTrailingSlash } from '../lib/utils.js'
 import type { MapInfoResponse } from '../types.js'
 
@@ -162,7 +162,7 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 			if (response && response.ok) {
 				const body = await response.json()
 
-				const madeChanges = normalizeStyle(body, {
+				const madeChanges = transformUrls(body, {
 					accessToken:
 						defaultOnlineStyleUrl.searchParams.get('access_token') || undefined,
 				})

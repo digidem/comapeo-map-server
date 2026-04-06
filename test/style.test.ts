@@ -4,12 +4,9 @@ import { fileURLToPath } from 'node:url'
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec'
 import { describe, expect, it } from 'vitest'
 
-import {
-	normalizeStyle,
-	type MapboxStyleSpecification,
-} from '../src/lib/style.js'
+import { transformUrls } from '../src/lib/style.js'
 
-describe('normalizeStyle()', () => {
+describe('transformUrls()', () => {
 	it('does nothing when input has no mapbox URIs', () => {
 		const input: StyleSpecification = {
 			version: 8,
@@ -30,7 +27,7 @@ describe('normalizeStyle()', () => {
 
 		const before = structuredClone(input)
 
-		const madeChanges = normalizeStyle(input)
+		const madeChanges = transformUrls(input)
 
 		expect(madeChanges).toBe(false)
 		expect(input).toStrictEqual(before)
@@ -39,7 +36,7 @@ describe('normalizeStyle()', () => {
 	it('throws on bad inputs', () => {
 		expect(
 			() =>
-				normalizeStyle({
+				transformUrls({
 					version: 8,
 					sources: {},
 					layers: [],
@@ -50,7 +47,7 @@ describe('normalizeStyle()', () => {
 
 		expect(
 			() =>
-				normalizeStyle({
+				transformUrls({
 					version: 8,
 					sources: {},
 					layers: [],
@@ -71,7 +68,7 @@ describe('normalizeStyle()', () => {
 			),
 		)
 
-		const madeChanges = normalizeStyle(streetsV12)
+		const madeChanges = transformUrls(streetsV12)
 
 		expect(madeChanges).toBe(true)
 
@@ -103,7 +100,7 @@ describe('normalizeStyle()', () => {
 
 		const accessToken = 'abc_123'
 
-		const madeChanges = normalizeStyle(streetsV12, { accessToken })
+		const madeChanges = transformUrls(streetsV12, { accessToken })
 
 		expect(madeChanges).toBe(true)
 
@@ -121,45 +118,5 @@ describe('normalizeStyle()', () => {
 				url: `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8,mapbox.mapbox-terrain-v2,mapbox.mapbox-bathymetry-v2.json?access_token=${accessToken}`,
 			},
 		})
-	})
-
-	it('ports projection property', async () => {
-		const portableProjections = ['mercator', 'globe'] as const
-		const nonportableProjections = [
-			'equalEarth',
-			'equirectangular',
-			'naturalEarth',
-			'winkelTripel',
-		] as const
-
-		for (const p of portableProjections) {
-			const input: MapboxStyleSpecification = {
-				version: 8,
-				sources: {},
-				layers: [],
-				projection: { name: p },
-			}
-
-			const madeChanges = normalizeStyle(input)
-
-			expect(madeChanges).toBe(true)
-
-			expect(input.projection).toStrictEqual({ type: p })
-		}
-
-		for (const p of nonportableProjections) {
-			const input: MapboxStyleSpecification = {
-				version: 8,
-				sources: {},
-				layers: [],
-				projection: { name: p },
-			}
-
-			const madeChanges = normalizeStyle(input)
-
-			expect(madeChanges).toBe(true)
-
-			expect(input.projection).toBeUndefined()
-		}
 	})
 })

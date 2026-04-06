@@ -1,32 +1,9 @@
+import type { StyleSpecification as MapboxStyleSpecification } from '@mapbox/mapbox-gl-style-spec'
 import type { StyleSpecification as MaplibreStyleSpecification } from '@maplibre/maplibre-gl-style-spec'
 
 export const BASE_MAPBOX_API_URL = 'https://api.mapbox.com' as const
 
 type MapboxURI = `mapbox://${string}`
-
-type MapboxProjectionSpecification =
-	| {
-			name:
-				| 'equalEarth'
-				| 'equirectangular'
-				| 'globe'
-				| 'mercator'
-				| 'naturalEarth'
-				| 'winkelTripel'
-	  }
-	| {
-			name: 'albers' | 'lambertConformalConic'
-			center?: [number, number]
-			parallels?: [number, number]
-	  }
-
-// Non-exhaustive alternative to what's provided in @mapbox/mapbox-gl-style-spec
-export type MapboxStyleSpecification = Omit<
-	MaplibreStyleSpecification,
-	'projection'
-> & {
-	projection?: MapboxProjectionSpecification
-}
 
 /**
  * Updates a provided style to be compatible with MapLibre. Note that this mutates the input.
@@ -40,10 +17,10 @@ export type MapboxStyleSpecification = Omit<
  *
  * @returns Boolean indicating if changes were made to the input.
  */
-export function normalizeStyle(
+export function transformUrls(
 	style: MapboxStyleSpecification | MaplibreStyleSpecification,
 	options?: { accessToken?: string },
-): style is MaplibreStyleSpecification {
+): boolean {
 	let madeChanges = false
 
 	// Update sprite
@@ -87,22 +64,6 @@ export function normalizeStyle(
 				madeChanges = true
 			}
 		}
-	}
-
-	// As of 2026-03-30, the only values from Mapbox that port over are `mercator` and `globe`.
-	// https://docs.mapbox.com/style-spec/reference/projection/#name
-	// https://maplibre.org/maplibre-style-spec/types/#projectiondefinition
-	if (style.projection && 'name' in style.projection) {
-		if (
-			style.projection.name === 'mercator' ||
-			style.projection.name === 'globe'
-		) {
-			style.projection = { type: style.projection.name }
-		} else {
-			style.projection = undefined
-		}
-
-		madeChanges = true
 	}
 
 	return madeChanges
