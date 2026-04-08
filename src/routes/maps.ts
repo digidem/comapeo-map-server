@@ -142,35 +142,37 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 			}
 
 			if (response && response.ok) {
-				const body = await response.json()
+				if (url.toString().startsWith(BASE_MAPBOX_API_URL)) {
+					const body = await response.json()
 
-				const madeChanges = transformUrls(body, {
-					accessToken:
-						defaultOnlineStyleUrl.searchParams.get('access_token') || undefined,
-				})
+					transformUrls(body, {
+						accessToken:
+							defaultOnlineStyleUrl.searchParams.get('access_token') ||
+							undefined,
+					})
 
-				const baseHeaders = {
-					'access-control-allow-origin': '*',
-					'cache-control': 'no-cache',
-				} as const
-
-				if (madeChanges) {
 					return new Response(JSON.stringify(body), {
 						status: 200,
-						headers: baseHeaders,
-					})
-				} else {
-					return new Response(null, {
-						status: 302,
 						headers: {
-							...baseHeaders,
-							location: url.toString(),
+							'access-control-allow-origin': '*',
+							'cache-control': 'no-cache',
 						},
 					})
 				}
-			} else {
-				response?.body?.cancel() // Close the connection
+
+				response.body?.cancel() // Close the connection
+
+				return new Response(null, {
+					status: 302,
+					headers: {
+						location: url.toString(),
+						'access-control-allow-origin': '*',
+						'cache-control': 'no-cache',
+					},
+				})
 			}
+
+			response?.body?.cancel() // Close the connection
 		}
 
 		throw new errors.MAP_NOT_FOUND('No available map style found')
