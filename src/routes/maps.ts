@@ -122,24 +122,6 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 	const defaultMapHandler: RequestHandler = async (request) => {
 		const defaultOnlineStyleUrl = ctx.getDefaultOnlineStyleUrl()
 
-		// Can use `?mapbox_access_token=...` to override the access token used
-		// for upstream mapbox style request
-		if (defaultOnlineStyleUrl.toString().startsWith(BASE_MAPBOX_API_URL)) {
-			const accessTokenFromRequest = Array.isArray(
-				request.query['mapbox_access_token'],
-			)
-				? request.query['mapbox_access_token'][0]
-				: request.query['mapbox_access_token']
-
-			// Prioritize the access token from the request
-			if (accessTokenFromRequest) {
-				defaultOnlineStyleUrl.searchParams.set(
-					'access_token',
-					accessTokenFromRequest,
-				)
-			}
-		}
-
 		const styleUrls = [
 			new URL(`../${CUSTOM_MAP_ID}/style.json`, request.url),
 			defaultOnlineStyleUrl,
