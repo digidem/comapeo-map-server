@@ -151,7 +151,7 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 							undefined,
 					})
 
-					return new Response(JSON.stringify(body), {
+					return Response.json(body, {
 						status: 200,
 						headers: {
 							'access-control-allow-origin': '*',
