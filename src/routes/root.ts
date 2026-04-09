@@ -14,7 +14,7 @@ const DOWNLOADS_BASE = '/downloads/'
 
 const { preflight } = cors({
 	origin: '*',
-	allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+	allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS', 'PUT'],
 	allowHeaders: ['Content-Type'],
 })
 
