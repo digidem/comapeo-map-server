@@ -25,7 +25,10 @@ const { preflight } = cors({
  */
 function corsify(response: Response): Response {
 	// Skip if CORS headers already present or if it's a WebSocket upgrade
-	if (response.headers.get('access-control-allow-origin') || response.status === 101) {
+	if (
+		response.headers.get('access-control-allow-origin') ||
+		response.status === 101
+	) {
 		return response
 	}
 	// Create new headers with CORS header added
