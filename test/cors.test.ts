@@ -36,7 +36,7 @@ describe('CORS Headers', () => {
 		expect(response.status).toBe(204)
 		expect(response.headers.get('access-control-allow-origin')).toBe('*')
 		expect(response.headers.get('access-control-allow-methods')).toBe(
-			'GET,POST,DELETE,OPTIONS',
+			'GET,POST,DELETE,OPTIONS,PUT',
 		)
 		expect(response.headers.get('access-control-allow-headers')).toBe(
 			'Content-Type',
@@ -51,7 +51,7 @@ describe('CORS Headers', () => {
 		expect(response.status).toBe(204)
 		expect(response.headers.get('access-control-allow-origin')).toBe('*')
 		expect(response.headers.get('access-control-allow-methods')).toBe(
-			'GET,POST,DELETE,OPTIONS',
+			'GET,POST,DELETE,OPTIONS,PUT',
 		)
 	})
 
@@ -63,7 +63,7 @@ describe('CORS Headers', () => {
 		expect(response.status).toBe(204)
 		expect(response.headers.get('access-control-allow-origin')).toBe('*')
 		expect(response.headers.get('access-control-allow-methods')).toBe(
-			'GET,POST,DELETE,OPTIONS',
+			'GET,POST,DELETE,OPTIONS,PUT',
 		)
 	})
 
