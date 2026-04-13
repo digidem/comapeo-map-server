@@ -11,7 +11,8 @@ import {
 	FALLBACK_MAP_ID,
 } from '../lib/constants.js'
 import { errors } from '../lib/errors.js'
-import { addTrailingSlash, noop } from '../lib/utils.js'
+import { BASE_MAPBOX_API_URL, transformUrls } from '../lib/style.js'
+import { addTrailingSlash } from '../lib/utils.js'
 import type { MapInfoResponse } from '../types.js'
 
 type MapRequest = IRequestStrict & {
@@ -120,6 +121,7 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 	// if available, otherwise falls back to the online style or bundled fallback
 	const defaultMapHandler: RequestHandler = async (request) => {
 		const defaultOnlineStyleUrl = ctx.getDefaultOnlineStyleUrl()
+
 		const styleUrls = [
 			new URL(`../${CUSTOM_MAP_ID}/style.json`, request.url),
 			defaultOnlineStyleUrl,
@@ -127,15 +129,39 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 		]
 
 		for (const url of styleUrls) {
-			let response: Response | void
-			if (url === defaultOnlineStyleUrl) {
-				response = await fetch(url).catch(noop)
-			} else {
-				// No need to go through the networking stack for local requests
-				response = await router.fetch(new Request(url)).catch(noop)
+			let response: Response | undefined
+			try {
+				if (url === defaultOnlineStyleUrl) {
+					response = await fetch(url)
+				} else {
+					// No need to go through the networking stack for local requests
+					response = await router.fetch(new Request(url))
+				}
+			} catch {
+				// no-op
 			}
-			response?.body?.cancel() // Close the connection
+
 			if (response && response.ok) {
+				if (url.toString().startsWith(BASE_MAPBOX_API_URL)) {
+					const body = await response.json()
+
+					transformUrls(body, {
+						accessToken:
+							defaultOnlineStyleUrl.searchParams.get('access_token') ||
+							undefined,
+					})
+
+					return Response.json(body, {
+						status: 200,
+						headers: {
+							'access-control-allow-origin': '*',
+							'cache-control': 'no-cache',
+						},
+					})
+				}
+
+				response.body?.cancel() // Close the connection
+
 				return new Response(null, {
 					status: 302,
 					headers: {
@@ -145,6 +171,8 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 					},
 				})
 			}
+
+			response?.body?.cancel() // Close the connection
 		}
 
 		throw new errors.MAP_NOT_FOUND('No available map style found')
