@@ -83,7 +83,7 @@ describe('transformUrls()', () => {
 		expect(streetsV12.sources).toStrictEqual({
 			composite: {
 				type: 'vector',
-				url: 'https://api.mapbox.com/v4/mapbox.mapbox-streets-v8,mapbox.mapbox-terrain-v2,mapbox.mapbox-bathymetry-v2.json',
+				url: 'https://api.mapbox.com/v4/mapbox.mapbox-streets-v8,mapbox.mapbox-terrain-v2,mapbox.mapbox-bathymetry-v2.json?secure=',
 			},
 		})
 	})
@@ -115,7 +115,7 @@ describe('transformUrls()', () => {
 		expect(streetsV12.sources).toStrictEqual({
 			composite: {
 				type: 'vector',
-				url: `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8,mapbox.mapbox-terrain-v2,mapbox.mapbox-bathymetry-v2.json?access_token=${accessToken}`,
+				url: `https://api.mapbox.com/v4/mapbox.mapbox-streets-v8,mapbox.mapbox-terrain-v2,mapbox.mapbox-bathymetry-v2.json?access_token=${accessToken}&secure=`,
 			},
 		})
 	})

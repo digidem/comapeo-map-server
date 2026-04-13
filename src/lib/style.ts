@@ -118,5 +118,7 @@ function normalizeSource(uri: MapboxURI, accessToken?: string) {
 		result.searchParams.set('access_token', accessToken)
 	}
 
+	result.searchParams.set('secure', '')
+
 	return result.href
 }
