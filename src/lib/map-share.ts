@@ -1,5 +1,3 @@
-import debounce from 'debounce'
-
 import { TypedEventTarget } from '../lib/event-target.js'
 import {
 	MapShareState,
@@ -9,9 +7,10 @@ import {
 } from '../types.js'
 import { errors, jsonError } from './errors.js'
 import { StateUpdateEvent } from './state-update-event.js'
+import { throttle } from './throttle.js'
 import { addTrailingSlash, generateId, getErrorCode } from './utils.js'
 
-const STATE_UPDATE_DEBOUNCE_MS = 100
+const PROGRESS_THROTTLE_MS = 100
 
 export type MapShareOptions = MapInfo & {
 	/**
@@ -189,22 +188,17 @@ class DownloadResponse extends TypedEventTarget<
 		this.#abortController.abort()
 	}
 
-	#dispatchProgress = debounce(
-		(update: DownloadStateUpdate) => {
-			this.dispatchEvent(new StateUpdateEvent(update))
-		},
-		STATE_UPDATE_DEBOUNCE_MS,
-		{ immediate: true },
-	)
+	#dispatchProgress = throttle((update: DownloadStateUpdate) => {
+		this.dispatchEvent(new StateUpdateEvent(update))
+	}, PROGRESS_THROTTLE_MS)
 
 	#updateState(update: DownloadStateUpdate) {
 		this.#state = update
 		if (update.status === 'downloading') {
 			this.#dispatchProgress(update)
 		} else {
-			// Flush any pending progress update so the final bytesDownloaded event
-			// is emitted before the terminal state, then dispatch the terminal
-			// state directly (non-terminal progress is the only thing debounced).
+			// Emit any pending progress update before the terminal state so
+			// consumers always see the final bytesDownloaded value.
 			this.#dispatchProgress.flush()
 			this.dispatchEvent(new StateUpdateEvent(update))
 		}

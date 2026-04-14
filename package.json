@@ -77,7 +77,6 @@
 		"@mapbox/mapbox-gl-style-spec": "^14.21.0",
 		"@maplibre/maplibre-gl-style-spec": "^24.7.0",
 		"@whatwg-node/server": "^0.10.17",
-		"debounce": "^3.0.0",
 		"itty-router": "^5.0.22",
 		"p-defer": "^4.0.1",
 		"p-mutex": "^0.1.0",
