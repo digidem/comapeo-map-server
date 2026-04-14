@@ -137,8 +137,27 @@ export class DownloadRequest extends TypedEventTarget<
 		this.#abortController.abort()
 	}
 
-	#updateState = debounce((update: DownloadStateUpdate) => {
+	#dispatchProgress = debounce(
+		(update: DownloadStateUpdate) => {
+			this.dispatchEvent(new StateUpdateEvent(update))
+		},
+		STATE_UPDATE_DEBOUNCE_MS,
+		{ immediate: true },
+	)
+
+	#updateState(update: DownloadStateUpdate) {
+		// Update #state synchronously so the transform stream's running byte
+		// count always reads the latest value; only the progress event dispatch
+		// is debounced.
 		this.#state = { ...this.#state, ...update }
-		this.dispatchEvent(new StateUpdateEvent(update))
-	}, STATE_UPDATE_DEBOUNCE_MS)
+		if (update.status === 'downloading') {
+			this.#dispatchProgress(update)
+		} else {
+			// Flush any pending progress update so the final bytesDownloaded event
+			// is emitted before the terminal state, then dispatch the terminal
+			// state directly (non-terminal progress is the only thing debounced).
+			this.#dispatchProgress.flush()
+			this.dispatchEvent(new StateUpdateEvent(update))
+		}
+	}
 }
