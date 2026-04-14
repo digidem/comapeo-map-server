@@ -232,22 +232,47 @@ function getRemoteBaseUrls(
 ): readonly [string, ...string[]] {
 	requestUrl = addTrailingSlash(requestUrl)
 	const interfaces = os.networkInterfaces()
-	const baseUrls: string[] = []
-	for (const iface of Object.values(interfaces)) {
+	const entries: Array<{ name: string; address: string }> = []
+	for (const [name, iface] of Object.entries(interfaces)) {
 		if (!iface) continue
 		for (const addr of iface) {
 			if (addr.family === 'IPv4' && !addr.internal) {
-				const url = new URL(requestUrl)
-				url.hostname = addr.address
-				url.port = remotePort.toString()
-				baseUrls.push(url.toString())
+				entries.push({ name, address: addr.address })
 			}
 		}
 	}
+	entries.sort((a, b) => {
+		const priorityDiff =
+			interfacePriority(a.name) - interfacePriority(b.name)
+		if (priorityDiff !== 0) return priorityDiff
+		return a.name.localeCompare(b.name, 'en', { numeric: true })
+	})
+	const baseUrls = entries.map(({ address }) => {
+		const url = new URL(requestUrl)
+		url.hostname = address
+		url.port = remotePort.toString()
+		return url.toString()
+	})
 	if (!arrayAtLeastOne(baseUrls)) {
 		throw new Error('No non-internal IPv4 addresses found')
 	}
 	return baseUrls
+}
+
+// Prefer interfaces most likely to be reachable from a peer device on the
+// local network, deprioritizing things like USB tethering (`rndis0`) or
+// cellular (`rmnet*`) which would otherwise be tried first.
+function interfacePriority(name: string): number {
+	const n = name.toLowerCase()
+	// Wifi: wlan0 (Android), wlp*s*/wl* (Linux), wifi*
+	if (n.startsWith('wl') || n.startsWith('wifi')) return 0
+	// Ethernet: eth0, en0, enp*, eno*, ens*
+	if (n.startsWith('en') || n.startsWith('eth')) return 1
+	// Hotspot (Android): ap0, softap0
+	if (n.startsWith('softap') || n.startsWith('ap')) return 2
+	// Hotspot variant (Android): swlan0
+	if (n.startsWith('swlan')) return 3
+	return 4
 }
 
 function arrayAtLeastOne<T>(arr: readonly T[]): arr is readonly [T, ...T[]] {
