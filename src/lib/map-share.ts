@@ -1,3 +1,5 @@
+import debounce from 'debounce'
+
 import { TypedEventTarget } from '../lib/event-target.js'
 import {
 	MapShareState,
@@ -8,6 +10,8 @@ import {
 import { errors, jsonError } from './errors.js'
 import { StateUpdateEvent } from './state-update-event.js'
 import { addTrailingSlash, generateId, getErrorCode } from './utils.js'
+
+const STATE_UPDATE_DEBOUNCE_MS = 100
 
 export type MapShareOptions = MapInfo & {
 	/**
@@ -119,7 +123,7 @@ export class MapShare extends TypedEventTarget<
  * share in the future (multiple downloads per share will make the "state" of a
  * MapShare harder to reason about and define).
  */
-export class DownloadResponse extends TypedEventTarget<
+class DownloadResponse extends TypedEventTarget<
 	InstanceType<typeof StateUpdateEvent<DownloadStateUpdate>>
 > {
 	#stream: TransformStream
@@ -181,8 +185,8 @@ export class DownloadResponse extends TypedEventTarget<
 		this.#abortController.abort()
 	}
 
-	#updateState(update: DownloadStateUpdate) {
+	#updateState = debounce((update: DownloadStateUpdate) => {
 		this.#state = update
 		this.dispatchEvent(new StateUpdateEvent(update))
-	}
+	}, STATE_UPDATE_DEBOUNCE_MS)
 }

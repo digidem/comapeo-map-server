@@ -1,3 +1,4 @@
+import debounce from 'debounce'
 import { Agent as SecretStreamAgent } from 'secret-stream-http'
 
 import { TypedEventTarget } from '../lib/event-target.js'
@@ -11,6 +12,8 @@ import { addTrailingSlash, generateId, getErrorCode, noop } from './utils.js'
 
 export type DownloadState = DownloadStateUpdate &
 	Omit<DownloadCreateParams, 'mapShareUrls'> & { downloadId: string }
+
+const STATE_UPDATE_DEBOUNCE_MS = 100
 
 export class DownloadRequest extends TypedEventTarget<
 	InstanceType<typeof StateUpdateEvent<DownloadStateUpdate>>
@@ -134,8 +137,8 @@ export class DownloadRequest extends TypedEventTarget<
 		this.#abortController.abort()
 	}
 
-	#updateState(update: DownloadStateUpdate) {
+	#updateState = debounce((update: DownloadStateUpdate) => {
 		this.#state = { ...this.#state, ...update }
 		this.dispatchEvent(new StateUpdateEvent(update))
-	}
+	}, STATE_UPDATE_DEBOUNCE_MS)
 }
