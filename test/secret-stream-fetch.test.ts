@@ -74,6 +74,38 @@ describe('secretStreamFetch', () => {
 		expect(signalAt(2).aborted).toBe(true)
 	})
 
+	it('does not abort the winner when a sibling fulfills in the same tick', async () => {
+		// Regression: on Windows CI, multiple mapShareUrls connect successfully
+		// to the same sender. Two fetches fulfill near-simultaneously, and the
+		// second IIFE to resume used to run its own abort cascade — tearing
+		// down the winner's controller and body mid-read. The winnerDeclared
+		// guard makes the second IIFE bow out.
+		const p = secretStreamFetch([
+			'https://example.com/a',
+			'https://example.com/b',
+			'https://example.com/c',
+		])
+		// Both fulfill before microtasks flush, queuing two await-resumes.
+		const winnerResponse = new Response('winner')
+		const laterResponse = new Response('too late')
+		resolvers[0](winnerResponse)
+		resolvers[1](laterResponse)
+		const winner = await p
+		expect(winner).toBe(winnerResponse)
+		// The winner's controller must NEVER be aborted by a later-fulfilling
+		// sibling — without the fix, signalAt(0).aborted would be true.
+		expect(signalAt(0).aborted).toBe(false)
+		// Both other URLs were aborted by the winner's cascade.
+		expect(signalAt(1).aborted).toBe(true)
+		expect(signalAt(2).aborted).toBe(true)
+		// The late fulfiller's body was released (cancelled stream is locked
+		// and its reader reports done on first read).
+		expect(laterResponse.body?.locked).toBe(false)
+		const reader = laterResponse.body!.getReader()
+		const { done } = await reader.read()
+		expect(done).toBe(true)
+	})
+
 	it('returns a later URL when an earlier one rejects', async () => {
 		const p = secretStreamFetch([
 			'https://example.com/a',

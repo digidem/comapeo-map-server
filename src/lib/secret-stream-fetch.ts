@@ -1,7 +1,7 @@
 import { fetch as secretStreamFetchOrig } from 'secret-stream-http'
 
 import { errors } from './errors.js'
-import { isArrayReadonly } from './utils.js'
+import { isArrayReadonly, noop } from './utils.js'
 
 const CONNECTION_TIMEOUT_MS = 5000 // 5s
 
@@ -19,6 +19,11 @@ export async function secretStreamFetch(
 	}
 	const responsePromises: Array<Promise<Response>> = []
 	const controllers: AbortController[] = []
+	// Set by the first IIFE whose fetch fulfills. Any IIFE that resumes later
+	// with its own fulfilled response must NOT run the abort cascade — the
+	// winner has already been picked by Promise.any, and aborting siblings at
+	// that point would tear down the winner's body stream mid-read.
+	let winnerDeclared = false
 
 	// The server could have multiple IPs for different network interfaces, and
 	// not all of them may be on the same network as us, so try every URL and
@@ -42,6 +47,14 @@ export async function secretStreamFetch(
 					...options,
 					signal,
 				})) as unknown as Response // Subtle difference between Undici fetch Response and whatwg Response
+				if (winnerDeclared) {
+					// We lost the race even though our fetch fulfilled. Release
+					// this response's socket and reject — Promise.any has already
+					// picked the real winner.
+					response.body?.cancel().catch(noop)
+					throw new DOMException('Aborted by winner', 'AbortError')
+				}
+				winnerDeclared = true
 				// First to fulfill — abort the other in-flight requests so their
 				// sockets close. Losers reject with AbortError, which Promise.any
 				// observes, so no unhandled rejections.
