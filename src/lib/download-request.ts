@@ -116,7 +116,6 @@ export class DownloadRequest extends TypedEventTarget<
 		try {
 			response = await anyFetch(downloadUrls, {
 				dispatcher: this.#dispatcher,
-				signal: this.#abortController.signal,
 			})
 		} catch (error) {
 			if (error instanceof DOMException && error.name === 'AbortError') {
