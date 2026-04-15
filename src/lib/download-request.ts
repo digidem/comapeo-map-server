@@ -5,7 +5,7 @@ import type { DownloadCreateParams } from '../routes/downloads.js'
 import { type DownloadStateUpdate } from '../types.js'
 import { StatusError } from './errors.js'
 import { errors, jsonError } from './errors.js'
-import { secretStreamFetch } from './secret-stream-fetch.js'
+import { anyFetch } from './secret-stream-fetch.js'
 import { StateUpdateEvent } from './state-update-event.js'
 import { throttle } from './throttle.js'
 import { addTrailingSlash, generateId, getErrorCode, noop } from './utils.js'
@@ -80,7 +80,8 @@ export class DownloadRequest extends TypedEventTarget<
 					// namely whether it was canceled, or if a different error occurred on
 					// the server side.
 					try {
-						const response = await secretStreamFetch(mapShareUrls, {
+						// GET /:shareId is idempotent, so racing URLs directly is safe.
+						const response = await anyFetch(mapShareUrls, {
 							dispatcher: this.#dispatcher,
 							signal: AbortSignal.timeout(2000),
 						})
@@ -107,14 +108,42 @@ export class DownloadRequest extends TypedEventTarget<
 		remotePublicKey: Uint8Array
 		keyPair: { publicKey: Uint8Array; secretKey: Uint8Array }
 	}) {
+		// anyFetch probes the URLs in parallel and only sends the real /download
+		// request to the winner. Necessary because the sender only supports one
+		// active download per share, so racing /download against a server
+		// reachable on several URLs would be unsafe.
 		const downloadUrls = mapShareUrls.map(
 			(baseUrl) => new URL('download', addTrailingSlash(baseUrl)),
-		) as unknown as [URL, ...URL[]] // grrrr TS
-		const response = await secretStreamFetch(downloadUrls, {
-			dispatcher: this.#dispatcher,
-		})
+		) as unknown as readonly [URL, ...URL[]]
+		let response: Response
+		try {
+			// We deliberately do NOT pass this.#abortController.signal here. If we
+			// did, a fast abort could fire while anyFetch is still in the probe
+			// phase — before any real /download request has reached the sender —
+			// leaving the sender's MapShare stuck in 'pending' because it never
+			// saw a connection to cancel. Instead we let anyFetch run to
+			// completion, then check the abort flag below (see the
+			// `signal.aborted` check after this try/catch). That way the sender
+			// always gets a real request, and cancelling the response body
+			// closes the connection so the sender can transition its state.
+			response = await anyFetch(downloadUrls, {
+				dispatcher: this.#dispatcher,
+			})
+		} catch (error) {
+			if (error instanceof DOMException && error.name === 'AbortError') {
+				throw error // Handle abort in caller
+			}
+			throw new errors.DOWNLOAD_ERROR({
+				message: 'Could not connect to map share sender',
+				urls: mapShareUrls,
+				cause: error,
+			})
+		}
 		if (!response.body) {
-			throw new errors.DOWNLOAD_ERROR('Could not connect to map share sender')
+			throw new errors.DOWNLOAD_ERROR({
+				message: 'Could not connect to map share sender',
+				urls: mapShareUrls,
+			})
 		}
 		if (!response.ok) {
 			throw new StatusError(response.status, await response.json())
