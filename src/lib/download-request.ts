@@ -7,10 +7,13 @@ import { StatusError } from './errors.js'
 import { errors, jsonError } from './errors.js'
 import { secretStreamFetch } from './secret-stream-fetch.js'
 import { StateUpdateEvent } from './state-update-event.js'
+import { throttle } from './throttle.js'
 import { addTrailingSlash, generateId, getErrorCode, noop } from './utils.js'
 
 export type DownloadState = DownloadStateUpdate &
 	Omit<DownloadCreateParams, 'mapShareUrls'> & { downloadId: string }
+
+const PROGRESS_THROTTLE_MS = 100
 
 export class DownloadRequest extends TypedEventTarget<
 	InstanceType<typeof StateUpdateEvent<DownloadStateUpdate>>
@@ -134,8 +137,22 @@ export class DownloadRequest extends TypedEventTarget<
 		this.#abortController.abort()
 	}
 
-	#updateState(update: DownloadStateUpdate) {
-		this.#state = { ...this.#state, ...update }
+	#dispatchProgress = throttle((update: DownloadStateUpdate) => {
 		this.dispatchEvent(new StateUpdateEvent(update))
+	}, PROGRESS_THROTTLE_MS)
+
+	#updateState(update: DownloadStateUpdate) {
+		// Update #state synchronously so the transform stream's running byte
+		// count always reads the latest value; only the progress event dispatch
+		// is throttled.
+		this.#state = { ...this.#state, ...update }
+		if (update.status === 'downloading') {
+			this.#dispatchProgress(update)
+		} else {
+			// Emit any pending progress update before the terminal state so
+			// consumers always see the final bytesDownloaded value.
+			this.#dispatchProgress.flush()
+			this.dispatchEvent(new StateUpdateEvent(update))
+		}
 	}
 }
