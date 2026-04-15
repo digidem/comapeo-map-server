@@ -257,7 +257,12 @@ describe('anyFetch — multiple URLs', () => {
 		})
 	})
 
-	it('propagates an external abort signal to every probe', async () => {
+	it('rejects with AbortError (not AggregateError) when the caller aborts mid-probe', async () => {
+		// Regression: when the caller's signal aborts during the probe phase,
+		// anyFetch must propagate the abort as an AbortError so the caller
+		// can distinguish it from "nothing was reachable". Otherwise downstream
+		// handlers that branch on `err.name === 'AbortError'` (e.g. the
+		// DownloadRequest constructor) would misclassify the cancellation.
 		const external = new AbortController()
 		const p = anyFetch(['https://example.com/a', 'https://example.com/b'], {
 			fetch: mock.fn,
@@ -266,13 +271,7 @@ describe('anyFetch — multiple URLs', () => {
 		external.abort()
 		expect(mock.signalAt(0).aborted).toBe(true)
 		expect(mock.signalAt(1).aborted).toBe(true)
-		await expect(p).rejects.toMatchObject({
-			name: 'AggregateError',
-			errors: [
-				expect.objectContaining({ name: 'AbortError' }),
-				expect.objectContaining({ name: 'AbortError' }),
-			],
-		})
+		await expect(p).rejects.toMatchObject({ name: 'AbortError' })
 	})
 
 	it('aborts every probe after the 5s connection timeout', async () => {

@@ -45,7 +45,17 @@ export async function anyFetch(
 		return await timeoutFetch(inputs[0], init)
 	}
 
-	const winningInput = await raceProbes(inputs, init)
+	let winningInput: FetchInput
+	try {
+		winningInput = await raceProbes(inputs, init)
+	} catch (err) {
+		// If the caller aborted mid-probe, propagate that as an AbortError
+		// (via signal.reason) rather than the probe's AggregateError — the
+		// caller needs to distinguish "I cancelled this" from "nothing was
+		// reachable".
+		init?.signal?.throwIfAborted()
+		throw err
+	}
 	const orderedInputs = [
 		winningInput,
 		...inputs.filter((i) => i !== winningInput),
@@ -56,16 +66,9 @@ export async function anyFetch(
 		try {
 			return await timeoutFetch(input, init)
 		} catch (err) {
-			// Re-throw an AbortError only if the caller's own signal aborted —
-			// otherwise it's our internal connection timeout, which should be
-			// reported as a connection failure like any other.
-			if (
-				err instanceof DOMException &&
-				err.name === 'AbortError' &&
-				init?.signal?.aborted
-			) {
-				throw err
-			}
+			// If the caller aborted mid-fetch, propagate that rather than our
+			// internal connection-timeout abort (or whatever lower-level error).
+			init?.signal?.throwIfAborted()
 			errors.push(err)
 		}
 	}
