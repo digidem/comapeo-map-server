@@ -117,6 +117,15 @@ export class DownloadRequest extends TypedEventTarget<
 		) as unknown as readonly [URL, ...URL[]]
 		let response: Response
 		try {
+			// We deliberately do NOT pass this.#abortController.signal here. If we
+			// did, a fast abort could fire while anyFetch is still in the probe
+			// phase — before any real /download request has reached the sender —
+			// leaving the sender's MapShare stuck in 'pending' because it never
+			// saw a connection to cancel. Instead we let anyFetch run to
+			// completion, then check the abort flag below (see the
+			// `signal.aborted` check after this try/catch). That way the sender
+			// always gets a real request, and cancelling the response body
+			// closes the connection so the sender can transition its state.
 			response = await anyFetch(downloadUrls, {
 				dispatcher: this.#dispatcher,
 			})
