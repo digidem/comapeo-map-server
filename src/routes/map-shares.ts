@@ -1,10 +1,7 @@
 import os from 'node:os'
 
 import { IRequestStrict, IttyRouter, type RequestHandler } from 'itty-router'
-import {
-	fetch as secretStreamFetch,
-	Agent as SecretStreamAgent,
-} from 'secret-stream-http'
+import { Agent as SecretStreamAgent } from 'secret-stream-http'
 import { Type as T, type Static } from 'typebox'
 import { Compile } from 'typebox/compile'
 
@@ -12,6 +9,7 @@ import type { Context } from '../context.js'
 import { errors, StatusError } from '../lib/errors.js'
 import { createEventStreamResponse } from '../lib/event-stream-response.js'
 import { MapShare } from '../lib/map-share.js'
+import { anyFetch } from '../lib/secret-stream-fetch.js'
 import { SelfEvictingTimeoutMap } from '../lib/self-evicting-map.js'
 import { addTrailingSlash, timingSafeEqual } from '../lib/utils.js'
 import { localhostOnly } from '../middlewares/localhost-only.js'
@@ -127,6 +125,14 @@ export function MapSharesRouter(
 	router.all('/:shareId', validateRemoteDeviceId)
 	router.all('/:shareId/*', validateRemoteDeviceId)
 
+	// Lightweight non-mutating probe used by remote peers to pick a reachable
+	// URL without triggering stateful handlers like /download or /decline.
+	// Runs under validateRemoteDeviceId so it inherits the same authorization
+	// as every other remote-accessible route.
+	const probeHandler = () => new Response(null, { status: 204 })
+	router.options('/:shareId', probeHandler)
+	router.options('/:shareId/*', probeHandler)
+
 	router.get('/:shareId', async (request): Promise<MapShareState> => {
 		return getMapShare(request.params.shareId).state
 	})
@@ -152,28 +158,27 @@ export function MapSharesRouter(
 		const { senderDeviceId, mapShareUrls, reason } = parsedBody
 		const remotePublicKey = Buffer.from(senderDeviceId, 'hex')
 		const keyPair = ctx.getKeyPair()
-		let response: Response | undefined
-		// The sharer could have multiple IPs for different network interfaces, and
-		// not all of them may be on the same network as us, so try each URL until
-		// one works
-		for (const mapShareUrl of mapShareUrls) {
-			const url = new URL('decline', addTrailingSlash(mapShareUrl))
-			try {
-				response = (await secretStreamFetch(url, {
-					method: 'POST',
-					body: JSON.stringify({ reason }),
-					signal: request.signal,
-					dispatcher: new SecretStreamAgent({ remotePublicKey, keyPair }),
-				})) as unknown as Response // Subtle difference bewteen Undici fetch Response and whatwg Response
-				break // Exit loop on successful fetch
-			} catch (error) {
-				if (error instanceof DOMException && error.name === 'AbortError') {
-					throw error // Handle abort in caller
-				}
-				// Otherwise, try the next URL
+
+		// The sharer could have multiple IPs for different network interfaces
+		// and not all of them may be on the same network as us. anyFetch picks
+		// a reachable URL via an OPTIONS probe before POSTing /decline, so we
+		// don't race a stateful endpoint against a single server reachable on
+		// several URLs.
+		const declineUrls = mapShareUrls.map(
+			(mapShareUrl) => new URL('decline', addTrailingSlash(mapShareUrl)),
+		) as unknown as readonly [URL, ...URL[]]
+		let response: Response
+		try {
+			response = await anyFetch(declineUrls, {
+				method: 'POST',
+				body: JSON.stringify({ reason }),
+				signal: request.signal,
+				dispatcher: new SecretStreamAgent({ remotePublicKey, keyPair }),
+			})
+		} catch (error) {
+			if (error instanceof DOMException && error.name === 'AbortError') {
+				throw error // Handle abort in caller
 			}
-		}
-		if (!response) {
 			throw new errors.DECLINE_CANNOT_CONNECT()
 		}
 		if (!response.ok) {
