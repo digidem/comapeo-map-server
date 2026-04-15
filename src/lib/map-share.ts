@@ -7,7 +7,10 @@ import {
 } from '../types.js'
 import { errors, jsonError } from './errors.js'
 import { StateUpdateEvent } from './state-update-event.js'
+import { throttle } from './throttle.js'
 import { addTrailingSlash, generateId, getErrorCode } from './utils.js'
+
+const PROGRESS_THROTTLE_MS = 100
 
 export type MapShareOptions = MapInfo & {
 	/**
@@ -69,6 +72,10 @@ export class MapShare extends TypedEventTarget<
 		this.#download.addEventListener('update', (event) => {
 			this.#updateState(event)
 		})
+		// Synchronously transition to 'downloading' so that any concurrent
+		// download attempt observes the non-pending state immediately, without
+		// waiting for the DownloadResponse's async transform start callback.
+		this.#updateState({ status: 'downloading', bytesDownloaded: 0 })
 		return this.#download.response
 	}
 
@@ -119,7 +126,7 @@ export class MapShare extends TypedEventTarget<
  * share in the future (multiple downloads per share will make the "state" of a
  * MapShare harder to reason about and define).
  */
-export class DownloadResponse extends TypedEventTarget<
+class DownloadResponse extends TypedEventTarget<
 	InstanceType<typeof StateUpdateEvent<DownloadStateUpdate>>
 > {
 	#stream: TransformStream
@@ -181,8 +188,19 @@ export class DownloadResponse extends TypedEventTarget<
 		this.#abortController.abort()
 	}
 
+	#dispatchProgress = throttle((update: DownloadStateUpdate) => {
+		this.dispatchEvent(new StateUpdateEvent(update))
+	}, PROGRESS_THROTTLE_MS)
+
 	#updateState(update: DownloadStateUpdate) {
 		this.#state = update
-		this.dispatchEvent(new StateUpdateEvent(update))
+		if (update.status === 'downloading') {
+			this.#dispatchProgress(update)
+		} else {
+			// Emit any pending progress update before the terminal state so
+			// consumers always see the final bytesDownloaded value.
+			this.#dispatchProgress.flush()
+			this.dispatchEvent(new StateUpdateEvent(update))
+		}
 	}
 }
