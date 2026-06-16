@@ -120,6 +120,11 @@ const errorsList = [
 		message: 'Invalid request',
 		status: 400,
 	},
+	{
+		code: 'SERVER_CLOSED',
+		message: 'Server is closed',
+		status: 503,
+	},
 ] as const satisfies Array<ErrorDefinition>
 
 export const errors = {} as Record<
