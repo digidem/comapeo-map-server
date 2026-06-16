@@ -9,9 +9,12 @@ import {
 	Agent,
 	createServer as createSecretStreamServer,
 } from 'secret-stream-http'
+import StartStopStateMachine from 'start-stop-state-machine'
 
 import { Context } from './context.js'
+import { errors } from './lib/errors.js'
 import { fetchAPI } from './lib/fetch-api.js'
+import { noop } from './lib/utils.js'
 import { RootRouter } from './routes/root.js'
 import type { FetchContext } from './types.js'
 
@@ -60,7 +63,7 @@ export function createServer(options: ServerOptions) {
 		options.keyPair = Agent.keyPair()
 	}
 
-	let deferredListen = pDefer<ListenResult>()
+	let deferredListen = createDeferredListen()
 	const context = new Context({
 		...options,
 		keyPair: options.keyPair,
@@ -100,39 +103,88 @@ export function createServer(options: ServerOptions) {
 	localHttpServer.on('connection', onConnection)
 	secretStreamServer.on('connection', onConnection)
 
+	const stateMachine = new StartStopStateMachine({
+		start: listen,
+		stop: close,
+	})
+
+	async function listen(opts: ListenOptions = {}) {
+		localHttpServer.listen(opts.localPort, '127.0.0.1')
+		secretStreamServer.listen(opts.remotePort, '0.0.0.0')
+		await Promise.all([
+			once(localHttpServer, 'listening'),
+			once(secretStreamServer, 'listening'),
+		])
+		const localPort = (localHttpServer.address() as AddressInfo).port
+		const remotePort = (secretStreamServer.address() as AddressInfo).port
+		deferredListen.resolve({ localPort, remotePort })
+		return { localPort, remotePort }
+	}
+
+	async function close() {
+		// Throw away any pending listen promises since the server is closing
+		deferredListen.reject(new errors.SERVER_CLOSED())
+		// Remove connection listeners
+		localHttpServer.off('connection', onConnection)
+		secretStreamServer.off('connection', onConnection)
+		localHttpServer.close()
+		secretStreamServer.close()
+		// Destroy all active connections to ensure clean shutdown
+		for (const socket of connections) {
+			socket.destroy()
+		}
+		connections.clear()
+		await Promise.all([
+			once(localHttpServer, 'close'),
+			once(secretStreamServer, 'close'),
+		])
+		await context.close()
+		// Reset deferred listen for potential restart with different ports
+		deferredListen = createDeferredListen()
+	}
+
+	function createDeferredListen() {
+		const deferred = pDefer<ListenResult>()
+		// close() rejects this to unblock getRemotePort(); swallow the rejection
+		// so it isn't reported as unhandled when nothing is awaiting it.
+		deferred.promise.catch(noop)
+		return deferred
+	}
+
 	return {
 		async listen(opts: ListenOptions = {}) {
-			localHttpServer.listen(opts.localPort, '127.0.0.1')
-			secretStreamServer.listen(opts.remotePort, '0.0.0.0')
-			await Promise.all([
-				once(localHttpServer, 'listening'),
-				once(secretStreamServer, 'listening'),
-			])
-			const localPort = (localHttpServer.address() as AddressInfo).port
-			const remotePort = (secretStreamServer.address() as AddressInfo).port
-			deferredListen.resolve({ localPort, remotePort })
-			return { localPort, remotePort }
-		},
-		async close() {
-			// Remove connection listeners
-			localHttpServer.off('connection', onConnection)
-			secretStreamServer.off('connection', onConnection)
-			localHttpServer.close()
-			secretStreamServer.close()
-			// Destroy all active connections to ensure clean shutdown
-			for (const socket of connections) {
-				socket.destroy()
+			const { value } = stateMachine.state
+			// When already (or nearly) listening, listen() is idempotent — but
+			// only for compatible ports. Requesting different explicit ports is a
+			// programming error: close() first to listen on new ports.
+			if (value === 'starting' || value === 'started') {
+				const current = await stateMachine.started()
+				assertCompatiblePorts(opts, current)
+				return current
 			}
-			connections.clear()
-			await Promise.all([
-				once(localHttpServer, 'close'),
-				once(secretStreamServer, 'close'),
-			])
-			await context.close()
-			// Reset deferred listen for potential restart with different ports
-			deferredListen = pDefer<ListenResult>()
+			return stateMachine.start(opts)
+		},
+		close() {
+			return stateMachine.stop()
 		},
 	}
+}
+
+function assertCompatiblePorts(opts: ListenOptions, current: ListenResult) {
+	// A falsy requested port (undefined or 0) means "any port", so it never
+	// conflicts with the port already in use.
+	assert(
+		!opts.localPort || opts.localPort === current.localPort,
+		new Error(
+			`Server is already listening on local port ${current.localPort}; call close() before listening on port ${opts.localPort}`,
+		),
+	)
+	assert(
+		!opts.remotePort || opts.remotePort === current.remotePort,
+		new Error(
+			`Server is already listening on remote port ${current.remotePort}; call close() before listening on port ${opts.remotePort}`,
+		),
+	)
 }
 
 function validateOptions(options: unknown): asserts options is ServerOptions {
