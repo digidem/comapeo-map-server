@@ -93,7 +93,7 @@ const MapInfo = T.Object({
 	mapId: T.String({ description: 'The ID of the map' }),
 	mapName: T.String({ description: 'The name of the map' }),
 	estimatedSizeBytes: EstimatedSizeBytes,
-	bounds: T.ReadonlyType(
+	bounds: T.ReadonlyObject(
 		T.Tuple([T.Number(), T.Number(), T.Number(), T.Number()], {
 			description: 'The bounding box of the map data',
 		}),
