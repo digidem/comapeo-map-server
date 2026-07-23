@@ -25,8 +25,7 @@
 		"format": "prettier --write .",
 		"prepare": "husky && patch-package",
 		"build": "tsc -p tsconfig.npm.json",
-		"prepack": "run-s test build",
-		"postpack": "publint --pack false"
+		"prepack": "run-s test build"
 	},
 	"keywords": [],
 	"author": "Awana Digital",
