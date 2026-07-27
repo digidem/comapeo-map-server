@@ -37,6 +37,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Run publint
+        run: npm run publint
+
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
