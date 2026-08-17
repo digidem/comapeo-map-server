@@ -188,6 +188,11 @@ export function createServer(options: ServerOptions) {
  * does eagerly there — so keep-alive requests queue behind unread data
  * forever. `resume()` is not enough: the adapter's `readable` listener keeps
  * the stream paused, so it must be actively read dry.
+ *
+ * Node >= 20 dumps the remainder natively (its bundled fetch no longer
+ * consumes the body eagerly), so this is only needed while the server
+ * supports Node 18 — which the nodejs-mobile backend in comapeo-mobile
+ * runs (18.20.4 as of Aug 2026).
  */
 function drainRequestOnEarlyResponse(
 	req: http.IncomingMessage,
