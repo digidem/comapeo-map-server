@@ -557,11 +557,9 @@ describe('Map Upload', () => {
 		// Wait for the first upload to reach the server and acquire the lock
 		await delay(200)
 
-		// Small body: the server responds 409 without reading the body, and on
-		// Node 18 a large undrained body wedges the client's pooled connection.
 		const response2 = await fetch(`${localBaseUrl}/maps/custom`, {
 			method: 'PUT',
-			body: fileBuffer.subarray(0, 1024),
+			body: fileBuffer,
 			headers: {
 				'Content-Type': 'application/octet-stream',
 			},
@@ -577,6 +575,81 @@ describe('Map Upload', () => {
 
 		const styleResponse = await fetch(`${localBaseUrl}/maps/custom/style.json`)
 		expect(styleResponse.status).toBe(200)
+	})
+
+	it('should keep the connection usable after a 409 with an unread body', async (t) => {
+		const { localPort, localBaseUrl } = await startServer(t, {
+			customMapPath: nonExistentPath,
+		})
+		const fileBuffer = fs.readFileSync(DEMOTILES_Z2)
+
+		// Hold the upload lock, as in the previous test
+		let releaseFirstUpload!: () => void
+		const gate = new Promise<void>((resolve) => {
+			releaseFirstUpload = resolve
+		})
+		const upload1 = fetch(`${localBaseUrl}/maps/custom`, {
+			method: 'PUT',
+			body: new ReadableStream<Uint8Array>({
+				async start(controller) {
+					controller.enqueue(fileBuffer.subarray(0, 1024))
+					await gate
+					controller.enqueue(fileBuffer.subarray(1024))
+					controller.close()
+				},
+			}),
+			// Node's fetch requires duplex for stream bodies; missing from DOM types
+			duplex: 'half',
+			headers: {
+				'Content-Type': 'application/octet-stream',
+			},
+		} as RequestInit)
+		await delay(200)
+
+		// Raw keep-alive connection: a full-body PUT that gets rejected early
+		// with 409, followed by another request on the same connection. The
+		// server must drain the unread body or the second request is never
+		// serviced (as happens on Node 18 without the drain).
+		const socket = net.connect(localPort, '127.0.0.1')
+		await new Promise<void>((resolve, reject) => {
+			socket.once('connect', resolve)
+			socket.once('error', reject)
+		})
+		t.onTestFinished(() => {
+			socket.destroy()
+		})
+		let received = ''
+		let onData: (() => void) | undefined
+		socket.on('data', (chunk) => {
+			received += chunk.toString()
+			onData?.()
+		})
+		const waitFor = (predicate: () => boolean) =>
+			new Promise<void>((resolve) => {
+				onData = () => {
+					if (predicate()) resolve()
+				}
+				onData()
+			})
+
+		socket.write(
+			`PUT /maps/custom HTTP/1.1\r\n` +
+				`Host: 127.0.0.1:${localPort}\r\n` +
+				`Content-Type: application/octet-stream\r\n` +
+				`Content-Length: ${fileBuffer.length}\r\n\r\n`,
+		)
+		socket.write(fileBuffer)
+		await waitFor(() => received.includes('UPLOAD_IN_PROGRESS'))
+		expect(received).toContain('409')
+
+		received = ''
+		socket.write(`GET /maps/fallback/info HTTP/1.1\r\nHost: x\r\n\r\n`)
+		await waitFor(() => received.includes('\r\n\r\n'))
+		expect(received).toContain('HTTP/1.1 200')
+
+		releaseFirstUpload()
+		const response1 = await upload1
+		expect(response1.status).toBe(200)
 	})
 
 	it('should abort a stalled upload after the idle timeout and release the lock', async (t) => {

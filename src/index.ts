@@ -86,10 +86,12 @@ export function createServer(options: ServerOptions) {
 		fetchAPI,
 	})
 	const localHttpServer = http.createServer((req, res) => {
+		drainRequestOnEarlyResponse(req, res)
 		serverAdapter(req, res, { isLocalhost: true })
 	})
 
 	const remoteHttpServer = http.createServer((req, res) => {
+		drainRequestOnEarlyResponse(req, res)
 		serverAdapter(req, res, {
 			isLocalhost: false,
 			// @ts-expect-error - the types for this are too hard and making them work would not add any type safety.
@@ -176,6 +178,31 @@ export function createServer(options: ServerOptions) {
 			return stateMachine.stop()
 		},
 	}
+}
+
+/**
+ * When a response is sent before the request body has been fully read (e.g.
+ * 409 for a concurrent upload, 408 for a stalled one), read and discard the
+ * remainder, else the connection wedges on Node 18: Node skips its own body
+ * dump when the stream is already being consumed — which the fetch adapter
+ * does eagerly there — so keep-alive requests queue behind unread data
+ * forever. `resume()` is not enough: the adapter's `readable` listener keeps
+ * the stream paused, so it must be actively read dry.
+ */
+function drainRequestOnEarlyResponse(
+	req: http.IncomingMessage,
+	res: http.ServerResponse,
+) {
+	res.once('finish', () => {
+		if (req.complete || req.destroyed) return
+		const drain = () => {
+			while (req.read() !== null) {
+				// discard: the response has already been sent
+			}
+		}
+		req.on('readable', drain)
+		drain()
+	})
 }
 
 function assertCompatiblePorts(opts: ListenOptions, current: ListenResult) {
