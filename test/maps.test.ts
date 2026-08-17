@@ -557,9 +557,11 @@ describe('Map Upload', () => {
 		// Wait for the first upload to reach the server and acquire the lock
 		await delay(200)
 
+		// Small body: the server responds 409 without reading the body, and on
+		// Node 18 a large undrained body wedges the client's pooled connection.
 		const response2 = await fetch(`${localBaseUrl}/maps/custom`, {
 			method: 'PUT',
-			body: fileBuffer,
+			body: fileBuffer.subarray(0, 1024),
 			headers: {
 				'Content-Type': 'application/octet-stream',
 			},
