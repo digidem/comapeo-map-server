@@ -42,7 +42,13 @@ function corsify(response: Response): Response {
 	})
 }
 
-export function RootRouter({ base = '/' }, ctx: Context): RouterExternal {
+export function RootRouter(
+	{
+		base = '/',
+		uploadIdleTimeoutMs,
+	}: { base?: string; uploadIdleTimeoutMs?: number },
+	ctx: Context,
+): RouterExternal {
 	const router = Router<IRequestStrict, [FetchContext]>({
 		base,
 		// Handle CORS preflight OPTIONS requests
@@ -56,7 +62,7 @@ export function RootRouter({ base = '/' }, ctx: Context): RouterExternal {
 		finally: [(response) => response ?? error(404), json, corsify],
 	})
 
-	const mapsRouter = MapsRouter({ base: MAPS_BASE }, ctx)
+	const mapsRouter = MapsRouter({ base: MAPS_BASE, uploadIdleTimeoutMs }, ctx)
 	const downloadsRouter = DownloadsRouter({ base: DOWNLOADS_BASE }, ctx)
 	const mapSharesRouter = MapSharesRouter({ base: MAP_SHARES_BASE }, ctx)
 

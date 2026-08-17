@@ -108,6 +108,16 @@ const errorsList = [
 		message: 'Failed to write map data',
 		status: 500,
 	},
+	{
+		code: 'UPLOAD_IN_PROGRESS',
+		message: 'Another upload for this map is already in progress',
+		status: 409,
+	},
+	{
+		code: 'UPLOAD_TIMEOUT',
+		message: 'Upload timed out: no data received from client',
+		status: 408,
+	},
 
 	// Generic errors
 	{

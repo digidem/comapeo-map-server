@@ -43,6 +43,11 @@ export type ServerOptions = {
 		publicKey: Uint8Array
 		secretKey: Uint8Array
 	}
+	/**
+	 * Abort a map upload (with a 408 response) if no request body data arrives
+	 * for this many milliseconds. Defaults to 30 seconds.
+	 */
+	uploadIdleTimeoutMs?: number
 }
 
 export type ListenOptions = {
@@ -72,7 +77,10 @@ export function createServer(options: ServerOptions) {
 			return listenOptions.remotePort
 		},
 	})
-	const router = RootRouter({ base: '/' }, context)
+	const router = RootRouter(
+		{ base: '/', uploadIdleTimeoutMs: options.uploadIdleTimeoutMs },
+		context,
+	)
 	// Use native fetch API to avoid ponyfill bugs with stream error propagation
 	const serverAdapter = createServerAdapter<FetchContext>(router.fetch, {
 		fetchAPI,
@@ -222,6 +230,18 @@ function validateOptions(options: unknown): asserts options is ServerOptions {
 		defaultOnlineStyleUrl: options.defaultOnlineStyleUrl,
 		customMapPath: options.customMapPath,
 		fallbackMapPath: options.fallbackMapPath,
+	}
+
+	if (
+		'uploadIdleTimeoutMs' in options &&
+		options.uploadIdleTimeoutMs !== undefined
+	) {
+		assert(
+			typeof options.uploadIdleTimeoutMs === 'number' &&
+				options.uploadIdleTimeoutMs > 0,
+			new TypeError('uploadIdleTimeoutMs must be a positive number'),
+		)
+		parsedOptions.uploadIdleTimeoutMs = options.uploadIdleTimeoutMs
 	}
 
 	if ('keyPair' in options && options.keyPair !== undefined) {
