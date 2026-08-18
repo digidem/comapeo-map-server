@@ -224,6 +224,8 @@ Content-Type: application/octet-stream
 
 Uploads a new custom map or replaces an existing one. The map becomes immediately available at `/maps/custom/`. This is how users add detailed offline maps for their specific area of interest.
 
+Only one upload can be in progress at a time for a given map: a concurrent upload responds immediately with `409 UPLOAD_IN_PROGRESS`. If the client stops sending body data mid-upload, the server aborts the upload with `408 UPLOAD_TIMEOUT` after an idle timeout (30 seconds by default, configurable via the `uploadIdleTimeoutMs` server option), so a stalled client cannot block later uploads.
+
 #### Delete Custom Map
 
 ```http
@@ -538,6 +540,8 @@ All error responses follow this format:
 | `MAP_NOT_FOUND`      | 404    | The requested map does not exist                                         |
 | `RESOURCE_NOT_FOUND` | 404    | The map exists but the requested resource (tile, sprite, glyph) does not |
 | `INVALID_MAP_FILE`   | 400    | The uploaded file is not a valid SMP file                                |
+| `UPLOAD_IN_PROGRESS` | 409    | Another upload for this map is already in progress                       |
+| `UPLOAD_TIMEOUT`     | 408    | Upload aborted: no body data received within the idle timeout            |
 
 ### Map Share Errors (Sender-side)
 

@@ -21,7 +21,12 @@ type MapRequest = IRequestStrict & {
 	}
 }
 
-export function MapsRouter({ base = '/' }, ctx: Context) {
+export const DEFAULT_UPLOAD_IDLE_TIMEOUT_MS = 30_000
+
+export function MapsRouter(
+	{ base = '/', uploadIdleTimeoutMs = DEFAULT_UPLOAD_IDLE_TIMEOUT_MS },
+	ctx: Context,
+) {
 	base = addTrailingSlash(base)
 	const uploadMutexes = new Map<string, Mutex>()
 
@@ -50,7 +55,26 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 		if (!request.body) {
 			throw new errors.INVALID_REQUEST('Request body is required')
 		}
-		await request.body.pipeTo(writable)
+		// Abort if no data arrives for uploadIdleTimeoutMs: a client that goes
+		// quiet without closing the socket (e.g. an app process frozen by
+		// Android) would otherwise hold the upload mutex until the socket dies.
+		const abortController = new AbortController()
+		const idleTimer = setTimeout(() => {
+			abortController.abort(new errors.UPLOAD_TIMEOUT())
+		}, uploadIdleTimeoutMs)
+		const monitoredBody = request.body.pipeThrough(
+			new TransformStream({
+				transform(chunk, controller) {
+					idleTimer.refresh()
+					controller.enqueue(chunk)
+				},
+			}),
+		)
+		try {
+			await monitoredBody.pipeTo(writable, { signal: abortController.signal })
+		} finally {
+			clearTimeout(idleTimer)
+		}
 	}
 
 	router.put<MapRequest>('/:mapId', async (request) => {
@@ -73,6 +97,11 @@ export function MapsRouter({ base = '/' }, ctx: Context) {
 		if (!mutex) {
 			mutex = new Mutex()
 			uploadMutexes.set(request.params.mapId, mutex)
+		}
+		// Fail fast rather than queue: a queued request would hang opaquely
+		// behind an in-flight upload it can do nothing about.
+		if (mutex.isLocked) {
+			throw new errors.UPLOAD_IN_PROGRESS()
 		}
 		await mutex.withLock(() => uploadHandler(request))
 		return new Response(null, { status: 200 })

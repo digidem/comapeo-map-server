@@ -137,5 +137,5 @@ describe('Server Restart', () => {
 		// All ports should be different (extremely likely with port 0)
 		const uniquePorts = new Set(ports)
 		expect(uniquePorts.size).toBe(3)
-	}, 20_000) // On node 18 restarting can be slow.
+	}, 20_000) // Generous timeout: repeated restarts can be slow on CI runners.
 })
