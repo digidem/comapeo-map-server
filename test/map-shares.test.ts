@@ -231,7 +231,16 @@ describe('Map Shares and Downloads', () => {
 				'bytesDownloaded',
 				share.estimatedSizeBytes,
 			)
-			expect(receiverEvents.length).toBeGreaterThan(3) // At least some progress events
+			// The number of progress events depends on transfer speed vs the
+			// throttle window (on a fast runner the whole transfer can fit in one
+			// window), so assert monotonic progress rather than an event count.
+			const progressBytes = receiverEvents
+				.map((e: any) => e.bytesDownloaded)
+				.filter((b: any) => typeof b === 'number')
+			expect(progressBytes.length).toBeGreaterThan(0)
+			for (let i = 1; i < progressBytes.length; i++) {
+				expect(progressBytes[i]).toBeGreaterThanOrEqual(progressBytes[i - 1])
+			}
 			const finalReceiverStyle = await receiver
 				.get(`maps/custom/style.json`)
 				.json()
