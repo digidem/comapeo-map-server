@@ -83,7 +83,7 @@
 		"itty-router": "^5.0.22",
 		"p-defer": "^4.0.1",
 		"p-mutex": "^0.1.0",
-		"secret-stream-http": "^1.0.1",
+		"secret-stream-http": "^2.0.0",
 		"smp-noto-glyphs": "^1.0.0-pre.0",
 		"start-stop-state-machine": "^2.0.0",
 		"styled-map-package-api": "^5.0.0-pre.4",
