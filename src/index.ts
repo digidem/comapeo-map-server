@@ -45,7 +45,7 @@ export type ServerOptions = {
 	}
 	/**
 	 * Abort a map upload (with a 408 response) if no request body data arrives
-	 * for this many milliseconds. Defaults to 30 seconds.
+	 * for this many milliseconds. Defaults to 30000.
 	 */
 	uploadIdleTimeoutMs?: number
 }
