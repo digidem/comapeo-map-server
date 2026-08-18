@@ -608,8 +608,8 @@ describe('Map Upload', () => {
 
 		// Raw keep-alive connection: a full-body PUT that gets rejected early
 		// with 409, followed by another request on the same connection. The
-		// server must drain the unread body or the second request is never
-		// serviced (as happens on Node 18 without the drain).
+		// unread body must get drained (Node >= 20 dumps it natively when the
+		// response finishes) or the second request is never serviced.
 		const socket = net.connect(localPort, '127.0.0.1')
 		await new Promise<void>((resolve, reject) => {
 			socket.once('connect', resolve)
