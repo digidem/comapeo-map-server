@@ -1,13 +1,15 @@
+import nodeFs from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { Transform } from 'node:stream'
 
 import bogon from 'bogon'
 import ky from 'ky'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { Agent as SecretStreamAgent } from 'secret-stream-http'
-import type { TestContext } from 'vitest'
+import { vi, type TestContext } from 'vitest'
 
 import type { ServerOptions } from '../src/index.js'
 import { createServer } from '../src/index.js'
@@ -195,6 +197,41 @@ export function getNonLoopbackIPv4(): string | null {
 		}
 	}
 	throw new Error('No non-loopback IPv4 address found')
+}
+
+/**
+ * Slow the map share send path down, so that a transfer is still in flight when
+ * a test cancels or aborts it. The fixtures are small enough to fit in the
+ * socket buffers whole, which lets the sender flush the entire map and report
+ * 'completed' before an abort request has finished its round trip — on Linux,
+ * where the loopback buffers are generous, reliably so.
+ *
+ * Only `Context#createMapReadableStream` reads a map this way. The SMP reader
+ * uses file handles, so serving tiles and styles is unaffected.
+ */
+export function throttleMapShareTransfer(
+	testContext: TestContext,
+	{ chunkSize = 64 * 1024, chunkDelayMs = 10 } = {},
+) {
+	const { createReadStream } = nodeFs
+	const spy = vi
+		.spyOn(nodeFs, 'createReadStream')
+		.mockImplementation((filePath, options) => {
+			const source = createReadStream(filePath, {
+				...(typeof options === 'object' ? options : {}),
+				highWaterMark: chunkSize,
+			})
+			const throttle = new Transform({
+				transform(chunk, _encoding, callback) {
+					setTimeout(() => callback(null, chunk), chunkDelayMs)
+				},
+			})
+			// pipe() does not forward destroy, and these streams are always torn
+			// down early, so close the file explicitly.
+			throttle.on('close', () => source.destroy())
+			return source.pipe(throttle) as unknown as nodeFs.ReadStream
+		})
+	testContext.onTestFinished(() => spy.mockRestore())
 }
 
 /**
