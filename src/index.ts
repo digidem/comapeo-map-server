@@ -60,6 +60,16 @@ type ListenResult = {
 	remotePort: number
 }
 
+/**
+ * Socket read/write buffer for the local HTTP server. The Node default (16 KiB
+ * on Node 20, 64 KiB from Node 22) is no larger than a single socket read, so
+ * the socket pauses after almost every chunk while the map is written to disk.
+ * 512 KiB lets reads run ahead of the disk and measures ~1.3x faster map
+ * uploads; see `bench/`. Connections to the remote server are SecretStream
+ * duplexes created by secret-stream-http, so this does not reach them.
+ */
+const SOCKET_HIGH_WATER_MARK = 512 * 1024
+
 export type MapServer = ReturnType<typeof createServer>
 
 export function createServer(options: ServerOptions) {
@@ -85,9 +95,12 @@ export function createServer(options: ServerOptions) {
 	const serverAdapter = createServerAdapter<FetchContext>(router.fetch, {
 		fetchAPI,
 	})
-	const localHttpServer = http.createServer((req, res) => {
-		serverAdapter(req, res, { isLocalhost: true })
-	})
+	const localHttpServer = http.createServer(
+		{ highWaterMark: SOCKET_HIGH_WATER_MARK },
+		(req, res) => {
+			serverAdapter(req, res, { isLocalhost: true })
+		},
+	)
 
 	const remoteHttpServer = http.createServer((req, res) => {
 		serverAdapter(req, res, {

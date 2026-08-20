@@ -22,6 +22,16 @@ type ContextOptions = SetRequired<ServerOptions, 'keyPair'> & {
 	getRemotePort: () => Promise<number>
 }
 
+/**
+ * Buffer size for reading and writing map files. The Node defaults (16 KiB for
+ * writes, 64 KiB for reads) are at or below the 64 KiB chunks the HTTP socket
+ * delivers, so the pipeline stalls waiting for `drain` on nearly every chunk
+ * and each one costs a separate syscall. 256 KiB lets the write stream batch
+ * chunks into one `writev`, and measures ~1.4x faster on both halves; see
+ * `bench/`.
+ */
+const FILE_HIGH_WATER_MARK = 256 * 1024
+
 let tmpCounter = 0
 
 export class Context {
@@ -108,7 +118,9 @@ export class Context {
 			throw new errors.MAP_NOT_FOUND(`Map ID not found: ${mapId}`)
 		}
 		return Readable.toWeb(
-			fs.createReadStream(mapFileUrl),
+			fs.createReadStream(mapFileUrl, {
+				highWaterMark: FILE_HIGH_WATER_MARK,
+			}),
 		) as ReadableStream<Uint8Array> // small discrepancy in types
 	}
 	/**
@@ -126,7 +138,9 @@ export class Context {
 			throw new errors.MAP_NOT_FOUND(`Map ID not found: ${mapId}`)
 		}
 		const tempPath = `${fileURLToPath(mapFileUrl)}.download-${tmpCounter++}`
-		const nodeWriteStream = fs.createWriteStream(tempPath)
+		const nodeWriteStream = fs.createWriteStream(tempPath, {
+			highWaterMark: FILE_HIGH_WATER_MARK,
+		})
 		const writable = Writable.toWeb(nodeWriteStream)
 		const writer = writable.getWriter()
 
