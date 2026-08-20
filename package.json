@@ -21,6 +21,7 @@
 	},
 	"scripts": {
 		"test": "run-p test:*",
+		"bench": "vitest bench --run",
 		"test:js": "vitest run",
 		"test:lint": "eslint",
 		"test:types": "tsc --noEmit",

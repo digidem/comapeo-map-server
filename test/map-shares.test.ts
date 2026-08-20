@@ -19,6 +19,7 @@ import {
 	DEMOTILES_Z2,
 	OSM_BRIGHT_Z6,
 	startServers,
+	throttleMapShareTransfer,
 	type ServerInstance,
 } from './helpers.js'
 
@@ -347,6 +348,7 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('should reject multiple simultaneous downloads of the same share', async (t) => {
+			throttleMapShareTransfer(t)
 			const { createShare, createDownload, receiver } = await startServers(t)
 
 			const share = await createShare().json()
@@ -424,6 +426,7 @@ describe('Map Shares and Downloads', () => {
 			})
 
 			it('should allow sender to cancel share after download starts', async (t) => {
+				throttleMapShareTransfer(t)
 				const { createShare, createDownload, sender, receiver } =
 					await startServers(t)
 				const share = await createShare().json()
@@ -508,6 +511,7 @@ describe('Map Shares and Downloads', () => {
 			})
 
 			it('should preserve existing map when sender cancels download', async (t) => {
+				throttleMapShareTransfer(t)
 				const { createShare, createDownload, sender, receiver } =
 					await startServers(t)
 
@@ -664,6 +668,7 @@ describe('Map Shares and Downloads', () => {
 
 		describe('Receiver Abort', () => {
 			it('should allow receiver to abort download immediately', async (t) => {
+				throttleMapShareTransfer(t)
 				const { createShare, createDownload, receiver, sender } =
 					await startServers(t, {
 						senderOptions: { customMapPath: OSM_BRIGHT_Z6 },
@@ -708,6 +713,7 @@ describe('Map Shares and Downloads', () => {
 			})
 
 			it('should allow receiver to abort download after progress', async (t) => {
+				throttleMapShareTransfer(t)
 				const { createShare, createDownload, receiver, sender } =
 					await startServers(t, {
 						senderOptions: { customMapPath: OSM_BRIGHT_Z6 },
@@ -768,6 +774,7 @@ describe('Map Shares and Downloads', () => {
 			})
 
 			it('should preserve existing map when receiver aborts download', async (t) => {
+				throttleMapShareTransfer(t)
 				const { createShare, createDownload, receiver } = await startServers(t)
 
 				// Get original map info
@@ -805,6 +812,7 @@ describe('Map Shares and Downloads', () => {
 			})
 
 			it('should clean up temp files when download is aborted', async (t) => {
+				throttleMapShareTransfer(t)
 				const { createShare, createDownload, receiver } = await startServers(t)
 				const receiverDir = path.dirname(receiver.customMapPath)
 				const receiverBasename = path.basename(receiver.customMapPath)
@@ -858,6 +866,7 @@ describe('Map Shares and Downloads', () => {
 
 	describe('SSE Events', () => {
 		it('should stream abort updates to sender when receiver aborts', async (t) => {
+			throttleMapShareTransfer(t)
 			const { createShare, createDownload, sender, receiver } =
 				await startServers(t)
 			const share = await createShare().json()
@@ -889,6 +898,7 @@ describe('Map Shares and Downloads', () => {
 		})
 
 		it('should stream cancel updates to receiver when sender cancels', async (t) => {
+			throttleMapShareTransfer(t)
 			const { createShare, createDownload, sender, receiver } =
 				await startServers(t)
 			const share = await createShare().json()
