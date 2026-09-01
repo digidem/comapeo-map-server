@@ -100,7 +100,7 @@ const operations = {
 process.on('message', (/** @type {any} */ message) => {
 	const { id, op, ...params } = message
 	Promise.resolve()
-		.then(() => operations[/** @type {keyof operations} */ (op)](params))
+		.then(() => operations[/** @type {keyof typeof operations} */ (op)](params))
 		.then(
 			(result) => process.send?.({ id, result }),
 			(error) => process.send?.({ id, error: error.message }),
