@@ -19,21 +19,48 @@ index e24db6e..980d0d8 100644
      };
      const useCustomAbortCtrl = options?.__useCustomAbortCtrl == null
 diff --git a/node_modules/@whatwg-node/server/cjs/index.js b/node_modules/@whatwg-node/server/cjs/index.js
-index abb80e8..869c427 100644
+index 91772dd..80532dd 100644
 --- a/node_modules/@whatwg-node/server/cjs/index.js
 +++ b/node_modules/@whatwg-node/server/cjs/index.js
-@@ -7,11 +7,8 @@ tslib_1.__exportStar(require("./types.js"), exports);
+@@ -7,12 +7,9 @@ tslib_1.__exportStar(require("./types.js"), exports);
  tslib_1.__exportStar(require("./utils.js"), exports);
  tslib_1.__exportStar(require("./plugins/types.js"), exports);
  tslib_1.__exportStar(require("./plugins/useCors.js"), exports);
 -tslib_1.__exportStar(require("./plugins/useErrorHandling.js"), exports);
  tslib_1.__exportStar(require("./plugins/useContentEncoding.js"), exports);
+ tslib_1.__exportStar(require("./plugins/useRequestDeadline.js"), exports);
  tslib_1.__exportStar(require("./uwebsockets.js"), exports);
 -var fetch_1 = require("@whatwg-node/fetch");
 -Object.defineProperty(exports, "Response", { enumerable: true, get: function () { return fetch_1.Response; } });
  var disposablestack_1 = require("@whatwg-node/disposablestack");
  Object.defineProperty(exports, "DisposableSymbols", { enumerable: true, get: function () { return disposablestack_1.DisposableSymbols; } });
  tslib_1.__exportStar(require("@envelop/instrumentation"), exports);
+diff --git a/node_modules/@whatwg-node/server/cjs/utils.js b/node_modules/@whatwg-node/server/cjs/utils.js
+index 1bacea5..edf0298 100644
+--- a/node_modules/@whatwg-node/server/cjs/utils.js
++++ b/node_modules/@whatwg-node/server/cjs/utils.js
+@@ -326,9 +326,19 @@ function sendNodeResponse(fetchResponse, serverResponse, nodeRequest, __useSingl
+ function sendReadableStream(nodeRequest, serverResponse, readableStream) {
+     const reader = readableStream.getReader();
+     nodeRequest?.once?.('error', err => {
+-        reader.cancel(err);
++        reader.cancel(err).catch(() => {});
++    });
++    return (0, promise_helpers_1.handleMaybePromise)(() => pumpToWritable(() => reader.read(), serverResponse), undefined, err => {
++        // If stream was aborted (e.g., via cancel()), destroy the socket with RST
++        if (err?.name === 'AbortError') {
++            if (!serverResponse.destroyed) {
++                serverResponse.destroy();
++            }
++            return;
++        }
++        // For other errors, re-throw to be handled by the request handler
++        throw err;
+     });
+-    return pumpToWritable(() => reader.read(), serverResponse);
+ }
+ function isRequestInit(val) {
+     return (val != null &&
 diff --git a/node_modules/@whatwg-node/server/esm/createServerAdapter.js b/node_modules/@whatwg-node/server/esm/createServerAdapter.js
 index 941f115..0815d9a 100644
 --- a/node_modules/@whatwg-node/server/esm/createServerAdapter.js
@@ -54,48 +81,43 @@ index 941f115..0815d9a 100644
      };
      const useCustomAbortCtrl = options?.__useCustomAbortCtrl == null
 diff --git a/node_modules/@whatwg-node/server/esm/index.js b/node_modules/@whatwg-node/server/esm/index.js
-index f83b68c..2eaf6d3 100644
+index abb6ae2..d9b4726 100644
 --- a/node_modules/@whatwg-node/server/esm/index.js
 +++ b/node_modules/@whatwg-node/server/esm/index.js
-@@ -3,9 +3,7 @@ export * from './types.js';
+@@ -3,10 +3,8 @@ export * from './types.js';
  export * from './utils.js';
  export * from './plugins/types.js';
  export * from './plugins/useCors.js';
 -export * from './plugins/useErrorHandling.js';
  export * from './plugins/useContentEncoding.js';
+ export * from './plugins/useRequestDeadline.js';
  export * from './uwebsockets.js';
 -export { Response } from '@whatwg-node/fetch';
  export { DisposableSymbols } from '@whatwg-node/disposablestack';
  export * from '@envelop/instrumentation';
 diff --git a/node_modules/@whatwg-node/server/esm/utils.js b/node_modules/@whatwg-node/server/esm/utils.js
-index 237a6e1..5cbe472 100644
+index 6b69348..7e9312c 100644
 --- a/node_modules/@whatwg-node/server/esm/utils.js
 +++ b/node_modules/@whatwg-node/server/esm/utils.js
-@@ -296,14 +296,25 @@ export function sendNodeResponse(fetchResponse, serverResponse, nodeRequest, __u
+@@ -305,9 +305,19 @@ export function sendNodeResponse(fetchResponse, serverResponse, nodeRequest, __u
  function sendReadableStream(nodeRequest, serverResponse, readableStream) {
      const reader = readableStream.getReader();
      nodeRequest?.once?.('error', err => {
 -        reader.cancel(err);
 +        reader.cancel(err).catch(() => {});
++    });
++    return handleMaybePromise(() => pumpToWritable(() => reader.read(), serverResponse), undefined, err => {
++        // If stream was aborted (e.g., via cancel()), destroy the socket with RST
++        if (err?.name === 'AbortError') {
++            if (!serverResponse.destroyed) {
++                serverResponse.destroy();
++            }
++            return;
++        }
++        // For other errors, re-throw to be handled by the request handler
++        throw err;
      });
-     function pump() {
-         return reader
-             .read()
-             .then(({ done, value }) => done
-             ? endResponse(serverResponse)
--            : handleMaybePromise(() => safeWrite(value, serverResponse), pump));
-+            : handleMaybePromise(() => safeWrite(value, serverResponse), pump))
-+            .catch(err => {
-+                // If stream was aborted (e.g., via cancel()), destroy the socket with RST
-+                if (err?.name === 'AbortError') {
-+                    if (!serverResponse.destroyed) {
-+                        serverResponse.destroy();
-+                    }
-+                    return;
-+                }
-+                // For other errors, re-throw to be handled by the request handler
-+                throw err;
-+            });
-     }
-     return pump();
+-    return pumpToWritable(() => reader.read(), serverResponse);
  }
+ export function isRequestInit(val) {
+     return (val != null &&

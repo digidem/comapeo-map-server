@@ -122,8 +122,8 @@ export async function startServers(
 		}),
 	])
 	const kyDefaults = ky.create({ retry: 0, throwHttpErrors: false })
-	const senderKy = kyDefaults.extend({ prefixUrl: sender.localBaseUrl })
-	const receiverKy = kyDefaults.extend({ prefixUrl: receiver.localBaseUrl })
+	const senderKy = kyDefaults.extend({ prefix: sender.localBaseUrl })
+	const receiverKy = kyDefaults.extend({ prefix: receiver.localBaseUrl })
 
 	const senderInstance: SenderInstance = {
 		get: senderKy.get.bind(senderKy),
