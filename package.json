@@ -1,6 +1,6 @@
 {
 	"name": "@comapeo/map-server",
-	"version": "3.0.0",
+	"version": "3.0.1",
 	"type": "module",
 	"engines": {
 		"node": ">=22"
