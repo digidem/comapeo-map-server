@@ -1,20 +1,20 @@
 import assert from 'node:assert'
 import { once } from 'node:events'
 import http from 'node:http'
-import { type AddressInfo, type Socket } from 'node:net'
+import { type AddressInfo, type Server, type Socket } from 'node:net'
 
 import { createServerAdapter } from '@whatwg-node/server'
 import pDefer from 'p-defer'
+import Mutex from 'p-mutex'
 import {
 	Agent,
 	createServer as createSecretStreamServer,
 } from 'secret-stream-http'
-import StartStopStateMachine from 'start-stop-state-machine'
 
 import { Context } from './context.js'
 import { errors } from './lib/errors.js'
 import { fetchAPI } from './lib/fetch-api.js'
-import { noop } from './lib/utils.js'
+import { getErrorCode, noop } from './lib/utils.js'
 import { RootRouter } from './routes/root.js'
 import type { FetchContext } from './types.js'
 
@@ -124,44 +124,57 @@ export function createServer(options: ServerOptions) {
 	localHttpServer.on('connection', onConnection)
 	secretStreamServer.on('connection', onConnection)
 
-	const stateMachine = new StartStopStateMachine({
-		start: listen,
-		stop: close,
-	})
-
-	async function listen(opts: ListenOptions = {}) {
-		localHttpServer.listen(opts.localPort, '127.0.0.1')
-		secretStreamServer.listen(opts.remotePort, '0.0.0.0')
-		await Promise.all([
-			once(localHttpServer, 'listening'),
-			once(secretStreamServer, 'listening'),
-		])
-		const localPort = (localHttpServer.address() as AddressInfo).port
-		const remotePort = (secretStreamServer.address() as AddressInfo).port
-		deferredListen.resolve({ localPort, remotePort })
-		return { localPort, remotePort }
+	// Every public method runs under this lock, so none can observe another
+	// half-done; nothing below touches `state` outside it. The servers are never
+	// closed while a bind is in flight: in Node 22 a close() that lands between
+	// listen() and its 'listening' event cancels the listen silently, and
+	// whatever awaits 'listening' hangs forever.
+	const lifecycle = new Mutex()
+	let state:
+		| { status: 'closed' }
+		| { status: 'listening' | 'paused'; ports: ListenResult } = {
+		status: 'closed',
 	}
 
-	async function close() {
-		// Throw away any pending listen promises since the server is closing
-		deferredListen.reject(new errors.SERVER_CLOSED())
-		// Remove connection listeners
-		localHttpServer.off('connection', onConnection)
-		secretStreamServer.off('connection', onConnection)
+	/**
+	 * Bind both servers, one after the other so that if the second fails the
+	 * first can be closed without racing its own bind. With `fallback`, a port
+	 * that is already in use is swapped for a random one rather than failing.
+	 */
+	async function bind(
+		ports: ListenOptions,
+		fallback: boolean,
+	): Promise<ListenResult> {
+		const localPort = await listenOn(
+			localHttpServer,
+			ports.localPort,
+			'127.0.0.1',
+			fallback,
+		)
+		try {
+			const remotePort = await listenOn(
+				secretStreamServer,
+				ports.remotePort,
+				'0.0.0.0',
+				fallback,
+			)
+			return { localPort, remotePort }
+		} catch (err) {
+			localHttpServer.close()
+			throw err
+		}
+	}
+
+	/**
+	 * Stop accepting connections on both servers. This releases the ports
+	 * synchronously but leaves open connections alone (apart from idle
+	 * keep-alive connections, which http.Server.close() ends), so it must not
+	 * wait for the servers' 'close' events: those only fire once every open
+	 * connection has ended.
+	 */
+	function unbind() {
 		localHttpServer.close()
 		secretStreamServer.close()
-		// Destroy all active connections to ensure clean shutdown
-		for (const socket of connections) {
-			socket.destroy()
-		}
-		connections.clear()
-		await Promise.all([
-			once(localHttpServer, 'close'),
-			once(secretStreamServer, 'close'),
-		])
-		await context.close()
-		// Reset deferred listen for potential restart with different ports
-		deferredListen = createDeferredListen()
 	}
 
 	function createDeferredListen() {
@@ -173,22 +186,119 @@ export function createServer(options: ServerOptions) {
 	}
 
 	return {
-		async listen(opts: ListenOptions = {}) {
-			const { value } = stateMachine.state
-			// When already (or nearly) listening, listen() is idempotent — but
-			// only for compatible ports. Requesting different explicit ports is a
-			// programming error: close() first to listen on new ports.
-			if (value === 'starting' || value === 'started') {
-				const current = await stateMachine.started()
-				assertCompatiblePorts(opts, current)
-				return current
-			}
-			return stateMachine.start(opts)
+		/**
+		 * Start listening. Resolves with the ports in use. Idempotent while
+		 * listening, but rejects if different explicit ports are requested
+		 * (close() first) or with `SERVER_PAUSED` while paused: only
+		 * `resumeListening()` undoes a pause.
+		 */
+		listen(opts: ListenOptions = {}) {
+			return lifecycle.withLock(async () => {
+				// Only resumeListening() undoes a pause: a listen() from elsewhere in
+				// the app must not quietly reopen the sockets while it is in the
+				// background.
+				if (state.status === 'paused') throw new errors.SERVER_PAUSED()
+				// When already listening, listen() is idempotent — but only for
+				// compatible ports. Requesting different explicit ports is a
+				// programming error: close() first to listen on new ports.
+				if (state.status === 'listening') {
+					assertCompatiblePorts(opts, state.ports)
+					return state.ports
+				}
+				const ports = await bind(opts, false)
+				state = { status: 'listening', ports }
+				deferredListen.resolve(ports)
+				return ports
+			})
 		},
+		/**
+		 * Stop listening, destroy all open connections and release resources. The
+		 * server can listen() again afterwards. A no-op if already closed.
+		 */
 		close() {
-			return stateMachine.stop()
+			return lifecycle.withLock(async () => {
+				if (state.status === 'closed') return
+				state = { status: 'closed' }
+				// Throw away any pending listen promises since the server is closing
+				deferredListen.reject(new errors.SERVER_CLOSED())
+				unbind()
+				// Destroy all active connections to ensure clean shutdown
+				for (const socket of connections) {
+					socket.destroy()
+				}
+				connections.clear()
+				await Promise.all([
+					once(localHttpServer, 'close'),
+					once(secretStreamServer, 'close'),
+				])
+				await context.close()
+				// Reset deferred listen for potential restart with different ports
+				deferredListen = createDeferredListen()
+			})
+		},
+		/**
+		 * Stop accepting new connections on both ports, without clearing any state
+		 * (map shares, downloads). Requests and transfers already in progress
+		 * carry on; idle keep-alive connections to the local port are closed, as
+		 * `http.Server.close()` does. Use this when the process is about to be
+		 * suspended, e.g. an iOS app moving to the background: iOS can reclaim a
+		 * suspended app's listening sockets, which leaves the server unreachable
+		 * after the app resumes. Only `resumeListening()` undoes this; `listen()`
+		 * rejects with `SERVER_PAUSED` while paused.
+		 *
+		 * A no-op unless the server is listening.
+		 */
+		pauseListening(): Promise<void> {
+			return lifecycle.withLock(async () => {
+				if (state.status !== 'listening') return
+				unbind()
+				state = { status: 'paused', ports: state.ports }
+			})
+		},
+		/**
+		 * Start accepting connections again after `pauseListening()`, on the same
+		 * ports. If a port has been taken in the meantime, a random port is used
+		 * instead, and map share URLs created before the pause will no longer
+		 * work. Resolves with the ports now in use; compare them with the previous
+		 * ones to detect a change.
+		 *
+		 * Rejects with `SERVER_CLOSED` if the server is closed or was never
+		 * started. If binding fails, the server stays paused and the call can be
+		 * retried.
+		 */
+		resumeListening(): Promise<ListenResult> {
+			return lifecycle.withLock(async () => {
+				if (state.status === 'closed') throw new errors.SERVER_CLOSED()
+				if (state.status === 'listening') return state.ports
+				// If bind() fails the server stays paused, so resume can be retried.
+				const ports = await bind(state.ports, true)
+				state = { status: 'listening', ports }
+				// The ports may differ from the ones before the pause, and a settled
+				// deferred cannot be re-resolved, so start a fresh one for
+				// getRemotePort().
+				deferredListen = createDeferredListen()
+				deferredListen.resolve(ports)
+				return ports
+			})
 		},
 	}
+}
+
+async function listenOn(
+	server: Server,
+	port: number | undefined,
+	host: string,
+	fallback: boolean,
+): Promise<number> {
+	try {
+		server.listen(port, host)
+		await once(server, 'listening')
+	} catch (err) {
+		if (!fallback || !port || getErrorCode(err) !== 'EADDRINUSE') throw err
+		server.listen(0, host)
+		await once(server, 'listening')
+	}
+	return (server.address() as AddressInfo).port
 }
 
 function assertCompatiblePorts(opts: ListenOptions, current: ListenResult) {
