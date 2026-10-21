@@ -135,6 +135,11 @@ const errorsList = [
 		message: 'Server is closed',
 		status: 503,
 	},
+	{
+		code: 'SERVER_PAUSED',
+		message: 'Server is paused: call resumeListening() to listen again',
+		status: 503,
+	},
 ] as const satisfies Array<ErrorDefinition>
 
 export const errors = {} as Record<

@@ -31,10 +31,12 @@ export type ServerInstance = {
 }
 
 export type SenderInstance = ServerInstance & {
+	server: ReturnType<typeof createServer>
 	remotePort: number
 }
 
 export type ReceiverInstance = ServerInstance & {
+	server: ReturnType<typeof createServer>
 	localPort: number
 	customMapPath: string
 }
@@ -126,6 +128,7 @@ export async function startServers(
 	const receiverKy = kyDefaults.extend({ prefix: receiver.localBaseUrl })
 
 	const senderInstance: SenderInstance = {
+		server: sender.server,
 		get: senderKy.get.bind(senderKy),
 		post: senderKy.post.bind(senderKy),
 		put: senderKy.put.bind(senderKy),
@@ -139,6 +142,7 @@ export async function startServers(
 	}
 
 	const receiverInstance: ReceiverInstance = {
+		server: receiver.server,
 		get: receiverKy.get.bind(receiverKy),
 		post: receiverKy.post.bind(receiverKy),
 		put: receiverKy.put.bind(receiverKy),

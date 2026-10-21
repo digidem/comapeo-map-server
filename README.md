@@ -95,6 +95,20 @@ console.log(`Map tiles: http://127.0.0.1:${localPort}/maps/default/style.json`)
 console.log(`P2P sharing: listening on 0.0.0.0:${remotePort} (Noise encrypted)`)
 ```
 
+### Pausing while the app is suspended
+
+iOS can reclaim the listening sockets of a suspended app, so after the app resumes the server no longer accepts connections even though the process is still running. Stop listening when the app moves to the background and start again when it returns:
+
+```javascript
+// App moved to the background
+await server.pauseListening()
+
+// App returned to the foreground
+const ports = await server.resumeListening()
+```
+
+`pauseListening()` only closes the listening sockets: map shares and downloads are kept, and requests and transfers already in progress carry on (idle keep-alive connections to the local port are closed). A download that hasn't connected to the sender yet will fail while the sender is paused. `resumeListening()` listens on the same ports again, so URLs handed out earlier keep working. If a port was taken while paused it falls back to a random port and resolves with the new one. Only `resumeListening()` undoes a pause; `listen()` rejects with a `SERVER_PAUSED` error while paused, so a stray `listen()` elsewhere in the app can't quietly reopen the sockets in the background.
+
 ## Using Maps in MapLibre
 
 Once the server is running, configure MapLibre to use it:
