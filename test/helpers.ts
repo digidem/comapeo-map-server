@@ -1,14 +1,21 @@
+import { once } from 'node:events'
 import nodeFs from 'node:fs'
 import fs from 'node:fs/promises'
+import { createServer as createHttpServer } from 'node:http'
+import type { AddressInfo, Socket } from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import { Transform } from 'node:stream'
 
+import { createAdapter } from '@comapeo/node-server'
 import bogon from 'bogon'
 import ky from 'ky'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
-import { Agent as SecretStreamAgent } from 'secret-stream-http'
+import {
+	Agent as SecretStreamAgent,
+	createServer as createSecretStreamServer,
+} from 'secret-stream-http'
 import { vi, type TestContext } from 'vitest'
 
 import type { ServerOptions } from '../src/index.js'
@@ -261,4 +268,36 @@ export function goOffline(testContext: TestContext) {
 	testContext.onTestFinished(() => {
 		server.close()
 	})
+}
+
+/**
+ * A remote device that answers map share requests with whatever `handler`
+ * returns, for testing how the receiver copes with other versions or
+ * misbehaving senders.
+ */
+export async function startFakeSender(
+	t: TestContext,
+	handler: (request: Request) => Response | Promise<Response>,
+) {
+	const keyPair = SecretStreamAgent.keyPair()
+	const httpServer = createHttpServer(createAdapter(handler))
+	const server = createSecretStreamServer(httpServer, { keyPair })
+	const sockets = new Set<Socket>()
+	server.on('connection', (socket: Socket) => {
+		sockets.add(socket)
+		socket.once('close', () => sockets.delete(socket))
+	})
+	server.listen(0, '127.0.0.1')
+	await once(server, 'listening')
+	t.onTestFinished(async () => {
+		const closed = once(server, 'close')
+		server.close()
+		for (const socket of sockets) socket.destroy()
+		await closed
+	})
+	const { port } = server.address() as AddressInfo
+	return {
+		deviceId: Buffer.from(keyPair.publicKey).toString('hex'),
+		shareUrl: `http://127.0.0.1:${port}/mapShares/fake-share`,
+	}
 }
