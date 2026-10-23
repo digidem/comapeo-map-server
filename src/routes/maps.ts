@@ -172,7 +172,9 @@ export function MapsRouter(
 
 			if (response && response.ok) {
 				if (url.toString().startsWith(BASE_MAPBOX_API_URL)) {
-					const body = await response.json()
+					const body = (await response.json()) as Parameters<
+						typeof transformUrls
+					>[0]
 
 					transformUrls(body, {
 						accessToken:

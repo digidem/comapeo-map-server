@@ -62,7 +62,7 @@ describe('Maps API', () => {
 			const { localBaseUrl } = await startServer(t)
 			const response = await fetch(`${localBaseUrl}/maps/custom/info`)
 			expect(response.status).toBe(200)
-			const info = await response.json()
+			const info: any = await response.json()
 			expect(Value.Check(MapInfoResponse, info)).toBe(true)
 			expect(info).toHaveProperty('created')
 			expect(info).toHaveProperty('size')
@@ -76,7 +76,7 @@ describe('Maps API', () => {
 			const { localBaseUrl } = await startServer(t)
 			const response = await fetch(`${localBaseUrl}/maps/fallback/info`)
 			expect(response.status).toBe(200)
-			const info = await response.json()
+			const info: any = await response.json()
 			expect(Value.Check(MapInfoResponse, info)).toBe(true)
 			expect(info).toHaveProperty('created')
 			expect(info).toHaveProperty('size')
@@ -463,7 +463,7 @@ describe('Map Upload', () => {
 			method: 'DELETE',
 		})
 		expect(response.status).toBe(403)
-		const error = await response.json()
+		const error: any = await response.json()
 		expect(error.code).toBe('FORBIDDEN')
 	})
 
@@ -473,7 +473,7 @@ describe('Map Upload', () => {
 			method: 'DELETE',
 		})
 		expect(response.status).toBe(403)
-		const error = await response.json()
+		const error: any = await response.json()
 		expect(error.code).toBe('FORBIDDEN')
 	})
 
@@ -483,7 +483,7 @@ describe('Map Upload', () => {
 			method: 'DELETE',
 		})
 		expect(response.status).toBe(404)
-		const error = await response.json()
+		const error: any = await response.json()
 		expect(error.code).toBe('MAP_NOT_FOUND')
 	})
 
@@ -762,7 +762,7 @@ describe('Map Upload', () => {
 		})
 
 		expect(response.status).toBe(500)
-		const error = await response.json()
+		const error: any = await response.json()
 		expect(error).toHaveProperty('code', 'MAP_WRITE_ERROR')
 
 		// Allow time for async cleanup to complete
@@ -805,7 +805,7 @@ describe('Map Upload', () => {
 		})
 
 		expect(response.status).toBe(500)
-		const error = await response.json()
+		const error: any = await response.json()
 		expect(error).toHaveProperty('code', 'MAP_WRITE_ERROR')
 
 		// Allow time for async cleanup to complete
@@ -882,7 +882,7 @@ describe('Invalid Map Uploads', () => {
 		})
 
 		expect(response.status).toBe(403)
-		const error = await response.json()
+		const error: any = await response.json()
 		expect(error.code).toBe('FORBIDDEN')
 	})
 
@@ -899,7 +899,7 @@ describe('Invalid Map Uploads', () => {
 		})
 
 		expect(response.status).toBe(403)
-		const error = await response.json()
+		const error: any = await response.json()
 		expect(error.code).toBe('FORBIDDEN')
 	})
 
@@ -916,7 +916,7 @@ describe('Invalid Map Uploads', () => {
 		})
 
 		expect(response.status).toBe(404)
-		const error = await response.json()
+		const error: any = await response.json()
 		expect(error.code).toBe('MAP_NOT_FOUND')
 	})
 })
@@ -927,7 +927,7 @@ describe('Error Response Format', () => {
 		const response = await fetch(`${localBaseUrl}/maps/nonexistent/style.json`)
 		expect(response.status).toBe(404)
 
-		const error = await response.json()
+		const error: any = await response.json()
 		expect(error).toHaveProperty('code')
 		expect(error).toHaveProperty('message')
 		expect(error.code).toBe('MAP_NOT_FOUND')
@@ -942,7 +942,7 @@ describe('Error Response Format', () => {
 		})
 		expect(response.status).toBe(400)
 
-		const error = await response.json()
+		const error: any = await response.json()
 		expect(error).toHaveProperty('code')
 		expect(error).toHaveProperty('message')
 		expect(error.code).toBe('INVALID_MAP_FILE')
@@ -954,7 +954,7 @@ describe('Error Response Format', () => {
 		const response = await fetch(`${localBaseUrl}/maps/custom/99/999/999.pbf`)
 		expect(response.status).toBe(404)
 
-		const error = await response.json()
+		const error: any = await response.json()
 		expect(error).toHaveProperty('code')
 		expect(error).toHaveProperty('message')
 		expect(error.code).toBe('RESOURCE_NOT_FOUND')
@@ -967,7 +967,7 @@ describe('Error Response Format', () => {
 		)
 		expect(response.status).toBe(404)
 
-		const error = await response.json()
+		const error: any = await response.json()
 		expect(error).toHaveProperty('code')
 		expect(error.code).toBe('RESOURCE_NOT_FOUND')
 	})

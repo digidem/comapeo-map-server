@@ -1202,7 +1202,7 @@ describe('Map Shares and Downloads', () => {
 
 				// Should succeed
 				expect(response.status).toBe(200)
-				const shareInfo = await response.json()
+				const shareInfo: any = await response.json()
 				expect(shareInfo.shareId).toBe(shareId)
 				expect(shareInfo.receiverDeviceId).toBe(receiver.deviceId)
 			})

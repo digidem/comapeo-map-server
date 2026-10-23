@@ -183,7 +183,7 @@ export function MapSharesRouter(
 		}
 		if (!response.ok) {
 			// pass through error from sender
-			throw new StatusError(response.status, await response.json())
+			throw new StatusError(response.status, (await response.json()) as any)
 		}
 		return new Response(null, { status: 204 })
 	}

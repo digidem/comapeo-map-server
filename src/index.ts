@@ -3,7 +3,7 @@ import { once } from 'node:events'
 import http from 'node:http'
 import { type AddressInfo, type Server, type Socket } from 'node:net'
 
-import { createServerAdapter } from '@whatwg-node/server'
+import { createAdapter } from '@comapeo/node-server'
 import pDefer from 'p-defer'
 import Mutex from 'p-mutex'
 import {
@@ -13,7 +13,6 @@ import {
 
 import { Context } from './context.js'
 import { errors } from './lib/errors.js'
-import { fetchAPI } from './lib/fetch-api.js'
 import { getErrorCode, noop } from './lib/utils.js'
 import { RootRouter } from './routes/root.js'
 import type { FetchContext } from './types.js'
@@ -91,24 +90,22 @@ export function createServer(options: ServerOptions) {
 		{ base: '/', uploadIdleTimeoutMs: options.uploadIdleTimeoutMs },
 		context,
 	)
-	// Use native fetch API to avoid ponyfill bugs with stream error propagation
-	const serverAdapter = createServerAdapter<FetchContext>(router.fetch, {
-		fetchAPI,
-	})
+	const handler = (request: Request, fetchContext: FetchContext) =>
+		router.fetch(request, fetchContext)
 	const localHttpServer = http.createServer(
 		{ highWaterMark: SOCKET_HIGH_WATER_MARK },
-		(req, res) => {
-			serverAdapter(req, res, { isLocalhost: true })
-		},
+		createAdapter(handler, { getContext: () => ({ isLocalhost: true }) }),
 	)
 
-	const remoteHttpServer = http.createServer((req, res) => {
-		serverAdapter(req, res, {
-			isLocalhost: false,
-			// @ts-expect-error - the types for this are too hard and making them work would not add any type safety.
-			remoteDeviceId: Buffer.from(req.socket.remotePublicKey).toString('hex'),
-		})
-	})
+	const remoteHttpServer = http.createServer(
+		createAdapter(handler, {
+			getContext: (req) => ({
+				isLocalhost: false,
+				// @ts-expect-error - secret-stream-http adds remotePublicKey to the socket
+				remoteDeviceId: Buffer.from(req.socket.remotePublicKey).toString('hex'),
+			}),
+		}),
+	)
 	const secretStreamServer = createSecretStreamServer(remoteHttpServer, {
 		keyPair: options.keyPair,
 	})
@@ -336,7 +333,7 @@ function validateOptions(options: unknown): asserts options is ServerOptions {
 		new TypeError('defaultOnlineStyleUrl must be a string or URL'),
 	)
 	assert(
-		URL.canParse(options.defaultOnlineStyleUrl),
+		URL.canParse(String(options.defaultOnlineStyleUrl)),
 		new TypeError('defaultOnlineStyleUrl must be a valid URL'),
 	)
 	assert(
