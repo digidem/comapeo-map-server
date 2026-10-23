@@ -17,9 +17,75 @@ export class StatusError extends Error {
 
 	constructor(status = 500, body?: StatusErrorObject | string) {
 		super(typeof body === 'object' ? body.message : body)
-		if (typeof body === 'object') Object.assign(this, body)
+		if (typeof body === 'object') {
+			for (const key of Object.keys(body)) {
+				// JSON.parse makes "__proto__" an own key, and assigning it would replace the prototype
+				if (key !== '__proto__') this[key] = body[key]
+			}
+		}
 		this.status = status
 	}
+}
+
+/**
+ * An error response from another device. The other device may be running a
+ * different version, so properties we don't know about are kept.
+ */
+export class RemoteStatusError extends StatusError {
+	readonly #details: ReturnType<typeof remoteErrorDetails>
+
+	constructor(status: number, body: unknown) {
+		const details = remoteErrorDetails(body)
+		super(status, details)
+		this.#details = details
+	}
+
+	/**
+	 * The error as the other device reported it, with a string code and message.
+	 * Static, because the other device's properties are copied onto the instance.
+	 */
+	static details(error: RemoteStatusError) {
+		return error.#details
+	}
+}
+
+export async function remoteStatusError(
+	response: Response,
+): Promise<RemoteStatusError> {
+	let body: unknown
+	try {
+		body = await response.json()
+	} catch {
+		// Not JSON, e.g. from a proxy
+	}
+	return new RemoteStatusError(
+		response.status,
+		isPlainObject(body)
+			? body
+			: { message: `Remote device responded with status ${response.status}` },
+	)
+}
+
+/** Error details reported by another device, keeping any extra properties */
+export function remoteErrorDetails(value: unknown): {
+	message: string
+	code: string
+} {
+	const details = Object.fromEntries(
+		Object.entries(isPlainObject(value) ? value : {}).filter(
+			([key]) => key !== '__proto__',
+		),
+	)
+	return {
+		...details,
+		message:
+			typeof details.message === 'string' ? details.message : 'Unknown error',
+		code: typeof details.code === 'string' ? details.code : 'UNKNOWN_ERROR',
+	}
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 const errorsList = [

@@ -6,7 +6,7 @@ import { Type as T, type Static } from 'typebox'
 import { Compile } from 'typebox/compile'
 
 import type { Context } from '../context.js'
-import { errors, StatusError } from '../lib/errors.js'
+import { errors, remoteStatusError } from '../lib/errors.js'
 import { createEventStreamResponse } from '../lib/event-stream-response.js'
 import { MapShare } from '../lib/map-share.js'
 import { anyFetch } from '../lib/secret-stream-fetch.js'
@@ -183,7 +183,7 @@ export function MapSharesRouter(
 		}
 		if (!response.ok) {
 			// pass through error from sender
-			throw new StatusError(response.status, (await response.json()) as any)
+			throw await remoteStatusError(response)
 		}
 		return new Response(null, { status: 204 })
 	}

@@ -12,12 +12,13 @@ import {
 	fetch as secretStreamFetch,
 	Agent as SecretStreamAgent,
 } from 'secret-stream-http'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, type TestContext } from 'vitest'
 
 import type { MapShareState } from '../src/types.js'
 import {
 	DEMOTILES_Z2,
 	OSM_BRIGHT_Z6,
+	startFakeSender,
 	startServers,
 	throttleMapShareTransfer,
 	type ServerInstance,
@@ -1594,6 +1595,152 @@ describe('Map Shares and Downloads', () => {
 	})
 
 	describe('Error Handling', () => {
+		describe('Sender on a different version', () => {
+			// Sends part of the map then drops the connection, so the receiver asks
+			// the sender for the share's state.
+			function droppedDownload(shareState: unknown) {
+				return (request: Request) => {
+					if (new URL(request.url).pathname.endsWith('/download')) {
+						const body = new ReadableStream({
+							start(controller) {
+								controller.enqueue(new Uint8Array(10))
+							},
+							async pull(controller) {
+								// Let the headers and first chunk reach the receiver first
+								await delay(100)
+								controller.error(new Error('Sender went away'))
+							},
+						})
+						return new Response(body, {
+							headers: { 'content-length': '1000' },
+						})
+					}
+					return Response.json(shareState)
+				}
+			}
+
+			async function downloadFrom(
+				t: TestContext,
+				handler: (request: Request) => Response | Promise<Response>,
+			) {
+				const { receiver } = await startServers(t)
+				const fakeSender = await startFakeSender(t, handler)
+				const { downloadId } = await receiver
+					.post('downloads', {
+						json: {
+							senderDeviceId: fakeSender.deviceId,
+							shareId: 'fake-share',
+							mapShareUrls: [fakeSender.shareUrl],
+							estimatedSizeBytes: 1000,
+						},
+					})
+					.json<any>()
+				return { receiver, downloadId }
+			}
+
+			async function finalState(
+				t: TestContext,
+				handler: (request: Request) => Response | Promise<Response>,
+			) {
+				const { receiver, downloadId } = await downloadFrom(t, handler)
+				const events = await eventsUntil(
+					receiver,
+					downloadId,
+					(msg) => JSON.parse(msg.data).status !== 'downloading',
+				)
+				return events.at(-1)
+			}
+
+			it('uses canceled from the sender', async (t) => {
+				const state = await finalState(
+					t,
+					droppedDownload({ status: 'canceled' }),
+				)
+				expect(state).toHaveProperty('status', 'canceled')
+			})
+
+			it("uses the sender's error, keeping unknown properties", async (t) => {
+				const state = await finalState(
+					t,
+					droppedDownload({
+						status: 'error',
+						error: { code: 'NEW_CODE', message: 'm', hint: 1 },
+					}),
+				)
+				expect(state).toHaveProperty('status', 'error')
+				expect(state.error).toEqual({ code: 'NEW_CODE', message: 'm', hint: 1 })
+			})
+
+			for (const shareState of [
+				{ status: 'downloading', bytesDownloaded: 10 },
+				{ status: 'pending' },
+				{ status: 'some_future_status' },
+				{ nostatus: true },
+				'not an object',
+			]) {
+				it(`reports its own error when the sender says ${JSON.stringify(shareState)}`, async (t) => {
+					const state = await finalState(t, droppedDownload(shareState))
+					expect(state).toHaveProperty('status', 'error')
+					// The receiver's own error from the dropped connection
+					expect(state).toHaveProperty('error.code', 'UNKNOWN_ERROR')
+					expect(state.error.message).not.toMatch(/connect/)
+				})
+			}
+
+			it('reports the HTTP status when an error response is not JSON', async (t) => {
+				const state = await finalState(
+					t,
+					() => new Response('<html>Bad Gateway</html>', { status: 502 }),
+				)
+				expect(state).toHaveProperty('status', 'error')
+				expect(state.error.message).toMatch(/502/)
+			})
+
+			it("passes through the sender's error response, keeping unknown properties", async (t) => {
+				const state = await finalState(t, () =>
+					Response.json(
+						{ code: 'NEW_CODE', message: 'From the future', hint: 1 },
+						{ status: 409 },
+					),
+				)
+				expect(state).toHaveProperty('status', 'error')
+				expect(state.error).toEqual({
+					code: 'NEW_CODE',
+					message: 'From the future',
+					hint: 1,
+				})
+			})
+
+			it('fills in a code and message of the wrong type', async (t) => {
+				const state = await finalState(t, () =>
+					Response.json({ code: 7, message: { a: 1 } }, { status: 409 }),
+				)
+				expect(state).toHaveProperty('status', 'error')
+				expect(state).toHaveProperty('error.code', 'UNKNOWN_ERROR')
+				expect(state).toHaveProperty('error.message', 'Unknown error')
+			})
+
+			it('does not treat an error response named AbortError as a local abort', async (t) => {
+				const state = await finalState(t, () =>
+					Response.json({ name: 'AbortError', code: 'X' }, { status: 409 }),
+				)
+				expect(state).toHaveProperty('status', 'error')
+				expect(state).toHaveProperty('error.code', 'X')
+			})
+
+			it('keeps an error response with a details property', async (t) => {
+				const state = await finalState(t, () =>
+					Response.json({ code: 'X', details: { a: 1 } }, { status: 409 }),
+				)
+				expect(state).toHaveProperty('status', 'error')
+				expect(state.error).toEqual({
+					code: 'X',
+					message: 'Unknown error',
+					details: { a: 1 },
+				})
+			})
+		})
+
 		it('should update status to error on download failure', async (t) => {
 			const { createShare, sender, receiver } = await startServers(t)
 

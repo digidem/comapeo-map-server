@@ -1,10 +1,17 @@
 import { Agent as SecretStreamAgent } from 'secret-stream-http'
+import { Type as T } from 'typebox'
+import { Compile } from 'typebox/compile'
 
 import { TypedEventTarget } from '../lib/event-target.js'
 import type { DownloadCreateParams } from '../routes/downloads.js'
 import { type DownloadStateUpdate } from '../types.js'
-import { StatusError } from './errors.js'
-import { errors, jsonError } from './errors.js'
+import {
+	errors,
+	jsonError,
+	remoteErrorDetails,
+	RemoteStatusError,
+	remoteStatusError,
+} from './errors.js'
 import { anyFetch } from './secret-stream-fetch.js'
 import { StateUpdateEvent } from './state-update-event.js'
 import { throttle } from './throttle.js'
@@ -14,6 +21,11 @@ export type DownloadState = DownloadStateUpdate &
 	Omit<DownloadCreateParams, 'mapShareUrls'> & { downloadId: string }
 
 const PROGRESS_THROTTLE_MS = 100
+
+// Only the fields we act on: the sender may be a newer version with statuses we don't know
+const CompiledRemoteShareStatus = Compile(
+	T.Object({ status: T.String(), error: T.Optional(T.Unknown()) }),
+)
 
 export class DownloadRequest extends TypedEventTarget<
 	InstanceType<typeof StateUpdateEvent<DownloadStateUpdate>>
@@ -64,10 +76,16 @@ export class DownloadRequest extends TypedEventTarget<
 			async (error) => {
 				// In case the error happens before we pipe to the stream, we need to abort the stream
 				await stream.abort().catch(noop)
-				if (error.name === 'AbortError') {
+				// instanceof, because an error from the sender can carry any name
+				if (error instanceof DOMException && error.name === 'AbortError') {
 					this.#updateState({ status: 'aborted' })
 				} else if (getErrorCode(error) === 'DOWNLOAD_SHARE_CANCELED') {
 					this.#updateState({ status: 'canceled' })
+				} else if (error instanceof RemoteStatusError) {
+					this.#updateState({
+						status: 'error',
+						error: RemoteStatusError.details(error),
+					})
 				} else if (getErrorCode(error)) {
 					// Specific known error from the server
 					this.#updateState({ status: 'error', error: jsonError(error) })
@@ -85,10 +103,18 @@ export class DownloadRequest extends TypedEventTarget<
 							dispatcher: this.#dispatcher,
 							signal: AbortSignal.timeout(2000),
 						})
-						const json: any = await response.json()
-						if (json.status) {
-							this.#updateState({ status: json.status, error: json.error })
-							return
+						const shareState: unknown = await response.json()
+						if (CompiledRemoteShareStatus.Check(shareState)) {
+							if (shareState.status === 'canceled') {
+								this.#updateState({ status: 'canceled' })
+								return
+							} else if (shareState.status === 'error') {
+								this.#updateState({
+									status: 'error',
+									error: remoteErrorDetails(shareState.error),
+								})
+								return
+							}
 						}
 					} catch {
 						// Ignore errors from checking the status and update state with original error
@@ -146,7 +172,7 @@ export class DownloadRequest extends TypedEventTarget<
 			})
 		}
 		if (!response.ok) {
-			throw new StatusError(response.status, (await response.json()) as any)
+			throw await remoteStatusError(response)
 		}
 		if (this.#abortController.signal.aborted) {
 			response.body.cancel().catch(noop)
