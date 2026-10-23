@@ -52,7 +52,7 @@ describe('Server Restart', () => {
 			},
 		)
 		expect(firstShareResponse.status).toBe(201)
-		const firstShare = await firstShareResponse.json()
+		const firstShare: any = await firstShareResponse.json()
 
 		// The mapShareUrls should contain the first remote port
 		expect(firstShare.mapShareUrls).toBeDefined()
@@ -88,7 +88,7 @@ describe('Server Restart', () => {
 			},
 		)
 		expect(secondShareResponse.status).toBe(201)
-		const secondShare = await secondShareResponse.json()
+		const secondShare: any = await secondShareResponse.json()
 
 		// The mapShareUrls should contain the SECOND remote port, not the first
 		expect(secondShare.mapShareUrls).toBeDefined()

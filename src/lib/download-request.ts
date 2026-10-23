@@ -85,7 +85,7 @@ export class DownloadRequest extends TypedEventTarget<
 							dispatcher: this.#dispatcher,
 							signal: AbortSignal.timeout(2000),
 						})
-						const json = await response.json()
+						const json: any = await response.json()
 						if (json.status) {
 							this.#updateState({ status: json.status, error: json.error })
 							return
@@ -146,7 +146,7 @@ export class DownloadRequest extends TypedEventTarget<
 			})
 		}
 		if (!response.ok) {
-			throw new StatusError(response.status, await response.json())
+			throw new StatusError(response.status, (await response.json()) as any)
 		}
 		if (this.#abortController.signal.aborted) {
 			response.body.cancel().catch(noop)

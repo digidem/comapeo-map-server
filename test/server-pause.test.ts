@@ -94,7 +94,7 @@ describe('pauseListening() / resumeListening()', () => {
 		response.resume()
 
 		await server.resumeListening()
-		const info = await fetch(
+		const info: any = await fetch(
 			`http://127.0.0.1:${localPort}/maps/custom/info`,
 		).then((r) => r.json())
 		expect(info.size).toBe(fs.statSync(OSM_BRIGHT_Z6).size)
