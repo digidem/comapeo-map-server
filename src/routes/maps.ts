@@ -3,6 +3,8 @@ import Mutex from 'p-mutex'
 import { notoGlyphFallback } from 'smp-noto-glyphs'
 import { emptyTileFallback } from 'styled-map-package-api/fallbacks'
 import { createServer as createSmpServer } from 'styled-map-package-api/server'
+import { Type as T } from 'typebox'
+import { Compile } from 'typebox/compile'
 
 import type { Context } from '../context.js'
 import {
@@ -14,6 +16,22 @@ import { errors } from '../lib/errors.js'
 import { BASE_MAPBOX_API_URL, transformUrls } from '../lib/style.js'
 import { addTrailingSlash } from '../lib/utils.js'
 import type { MapInfoResponse } from '../types.js'
+
+// Only the parts transformUrls reads; anything else in the style is passed on
+const CompiledOnlineStyle = Compile(
+	T.Object({
+		version: T.Number(),
+		sources: T.Record(T.String(), T.Object({})),
+		layers: T.Array(T.Unknown()),
+		sprite: T.Optional(
+			T.Union([
+				T.String(),
+				T.Array(T.Object({ id: T.String(), url: T.String() })),
+			]),
+		),
+		glyphs: T.Optional(T.String()),
+	}),
+)
 
 type MapRequest = IRequestStrict & {
 	params: {
@@ -172,17 +190,24 @@ export function MapsRouter(
 
 			if (response && response.ok) {
 				if (url.toString().startsWith(BASE_MAPBOX_API_URL)) {
-					const body = (await response.json()) as Parameters<
-						typeof transformUrls
-					>[0]
+					let style: unknown
+					try {
+						style = await response.json()
+						if (!CompiledOnlineStyle.Check(style)) {
+							throw new Error('Not a map style')
+						}
+						transformUrls(style as Parameters<typeof transformUrls>[0], {
+							accessToken:
+								defaultOnlineStyleUrl.searchParams.get('access_token') ||
+								undefined,
+						})
+					} catch (err) {
+						throw new errors.INVALID_ONLINE_STYLE(
+							`The online map style could not be read: ${(err as Error).message}`,
+						)
+					}
 
-					transformUrls(body, {
-						accessToken:
-							defaultOnlineStyleUrl.searchParams.get('access_token') ||
-							undefined,
-					})
-
-					return Response.json(body, {
+					return Response.json(style, {
 						status: 200,
 						headers: {
 							'access-control-allow-origin': '*',
