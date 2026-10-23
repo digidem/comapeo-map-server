@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 
 import {
 	remoteErrorDetails,
+	RemoteStatusError,
 	remoteStatusError,
 	StatusError,
 } from '../src/lib/errors.js'
@@ -22,6 +23,20 @@ describe('remoteStatusError', () => {
 			code: 'NEW_CODE',
 			message: 'From the future',
 			hint: 1,
+		})
+	})
+
+	it('keeps a details property', async () => {
+		const response = Response.json(
+			{ code: 'X', details: { a: 1 } },
+			{ status: 409 },
+		)
+		const err = await remoteStatusError(response)
+		expect(err.details).toEqual({ a: 1 })
+		expect(RemoteStatusError.details(err)).toEqual({
+			code: 'X',
+			message: 'Unknown error',
+			details: { a: 1 },
 		})
 	})
 

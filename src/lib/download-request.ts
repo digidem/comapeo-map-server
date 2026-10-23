@@ -82,7 +82,10 @@ export class DownloadRequest extends TypedEventTarget<
 				} else if (getErrorCode(error) === 'DOWNLOAD_SHARE_CANCELED') {
 					this.#updateState({ status: 'canceled' })
 				} else if (error instanceof RemoteStatusError) {
-					this.#updateState({ status: 'error', error: error.details })
+					this.#updateState({
+						status: 'error',
+						error: RemoteStatusError.details(error),
+					})
 				} else if (getErrorCode(error)) {
 					// Specific known error from the server
 					this.#updateState({ status: 'error', error: jsonError(error) })

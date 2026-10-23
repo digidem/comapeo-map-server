@@ -40,9 +40,12 @@ export class RemoteStatusError extends StatusError {
 		this.#details = details
 	}
 
-	/** The error as the other device reported it, with a string code and message */
-	get details() {
-		return this.#details
+	/**
+	 * The error as the other device reported it, with a string code and message.
+	 * Static, because the other device's properties are copied onto the instance.
+	 */
+	static details(error: RemoteStatusError) {
+		return error.#details
 	}
 }
 

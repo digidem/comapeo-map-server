@@ -1727,6 +1727,18 @@ describe('Map Shares and Downloads', () => {
 				expect(state).toHaveProperty('status', 'error')
 				expect(state).toHaveProperty('error.code', 'X')
 			})
+
+			it('keeps an error response with a details property', async (t) => {
+				const state = await finalState(t, () =>
+					Response.json({ code: 'X', details: { a: 1 } }, { status: 409 }),
+				)
+				expect(state).toHaveProperty('status', 'error')
+				expect(state.error).toEqual({
+					code: 'X',
+					message: 'Unknown error',
+					details: { a: 1 },
+				})
+			})
 		})
 
 		it('should update status to error on download failure', async (t) => {
