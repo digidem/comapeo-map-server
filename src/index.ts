@@ -90,15 +90,15 @@ export function createServer(options: ServerOptions) {
 		{ base: '/', uploadIdleTimeoutMs: options.uploadIdleTimeoutMs },
 		context,
 	)
-	const handler = (request: Request, fetchContext: FetchContext) =>
-		router.fetch(request, fetchContext)
 	const localHttpServer = http.createServer(
 		{ highWaterMark: SOCKET_HIGH_WATER_MARK },
-		createAdapter(handler, { getContext: () => ({ isLocalhost: true }) }),
+		createAdapter<FetchContext>(router.fetch, {
+			getContext: () => ({ isLocalhost: true }),
+		}),
 	)
 
 	const remoteHttpServer = http.createServer(
-		createAdapter(handler, {
+		createAdapter<FetchContext>(router.fetch, {
 			getContext: (req) => ({
 				isLocalhost: false,
 				// @ts-expect-error - secret-stream-http adds remotePublicKey to the socket
