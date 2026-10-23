@@ -6,9 +6,11 @@ import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
+import { http, HttpResponse } from 'msw'
+import { setupServer } from 'msw/node'
 import { Reader } from 'styled-map-package-api/reader'
 import Value from 'typebox/value'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, type TestContext } from 'vitest'
 
 import { MapInfoResponse } from '../src/types.js'
 import {
@@ -301,6 +303,75 @@ describe('Online Style Fallback', () => {
 		expect(style).toHaveProperty('version')
 		expect(style).toHaveProperty('sources')
 	})
+})
+
+describe('Mapbox Style', () => {
+	const nonExistentPath = path.join(
+		os.tmpdir(),
+		`nonexistent-map-${randomBytes(8).toString('hex')}.smp`,
+	)
+	const MAPBOX_STYLE_URL =
+		'https://api.mapbox.com/styles/v1/mapbox/streets-v12?access_token=pk.test'
+
+	function mockMapbox(t: TestContext, response: () => Response) {
+		const server = setupServer(
+			http.get('https://api.mapbox.com/styles/*', response),
+		)
+		server.listen({ onUnhandledRequest: 'bypass' })
+		t.onTestFinished(() => server.close())
+	}
+
+	it('serves the Mapbox style with its URLs rewritten', async (t) => {
+		const fixture = fs.readFileSync(
+			new URL('./fixtures/mapbox-streets-v12.json', import.meta.url),
+			'utf8',
+		)
+		mockMapbox(t, () => HttpResponse.json(JSON.parse(fixture)))
+		const { localBaseUrl } = await startServer(t, {
+			customMapPath: nonExistentPath,
+			defaultOnlineStyleUrl: MAPBOX_STYLE_URL,
+		})
+		const response = await fetch(`${localBaseUrl}/maps/default/style.json`)
+		expect(response.status).toBe(200)
+		const style: any = await response.json()
+		expect(style.glyphs).toMatch(/^https:\/\/api\.mapbox\.com\//)
+	})
+
+	for (const [name, body] of [
+		['not JSON', '<html>Oops</html>'],
+		['JSON null', 'null'],
+		['an array', '[]'],
+		['missing layers', '{"version": 8, "sources": {}}'],
+		['sources as an array', '{"version": 8, "sources": [], "layers": []}'],
+		[
+			'a sprite of the wrong type',
+			'{"version": 8, "sources": {}, "layers": [], "sprite": 5}',
+		],
+		[
+			'a style with an invalid sprite URL',
+			'{"version": 8, "sources": {}, "layers": [], "sprite": "not a url"}',
+		],
+	]) {
+		it(`responds INVALID_ONLINE_STYLE when the Mapbox response is ${name}`, async (t) => {
+			mockMapbox(
+				t,
+				() =>
+					new HttpResponse(body, {
+						headers: { 'content-type': 'application/json' },
+					}),
+			)
+			const { localBaseUrl } = await startServer(t, {
+				customMapPath: nonExistentPath,
+				defaultOnlineStyleUrl: MAPBOX_STYLE_URL,
+			})
+			const response = await fetch(`${localBaseUrl}/maps/default/style.json`, {
+				redirect: 'manual',
+			})
+			expect(response.status).toBe(502)
+			const error: any = await response.json()
+			expect(error.code).toBe('INVALID_ONLINE_STYLE')
+		})
+	}
 })
 
 describe('Fallback Map Fallback', () => {

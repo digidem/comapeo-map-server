@@ -170,6 +170,11 @@ const errorsList = [
 		status: 400,
 	},
 	{
+		code: 'INVALID_ONLINE_STYLE',
+		message: 'The online map style could not be read',
+		status: 502,
+	},
+	{
 		code: 'MAP_WRITE_ERROR',
 		message: 'Failed to write map data',
 		status: 500,
